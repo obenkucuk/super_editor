@@ -29,7 +29,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-  attributed_text: ^0.4.1
+  attributed_text:
+    git:
+      url: git@github.com:obenkucuk/super_editor.git
+      path: attributed_text
+      ref: main
   collection: ^1.18.0
   logging: ^1.3.0
 
