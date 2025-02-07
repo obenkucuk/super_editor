@@ -22,7 +22,8 @@ class _SuperReaderDemoState extends State<SuperReaderDemo> {
   @override
   void initState() {
     super.initState();
-    _document = deserializeMarkdownToDocument(serializeDocumentToMarkdown(createInitialDocument()));
+    _document = deserializeMarkdownToDocument(
+        """Benim adım ***Oben. Küçük*** de soyadım***dır***. ***Sikim*** de kutu kola **gibi*di*r**. Oben'in gözleri çakmak çakmaktır.""");
     _overlayController = MagnifierAndToolbarController();
     _iosReaderControlsController = SuperReaderIosControlsController(
       toolbarBuilder: _buildToolbar,
@@ -131,9 +132,7 @@ class _SuperReaderDemoState extends State<SuperReaderDemo> {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          final node = _document.getNodeById('3fb4da8b-a210-41c7-9131-cda9a8dd320c');
-
-          print('Node: $node');
+          print(_document.first);
         },
         child: const Icon(Icons.select_all),
       ),

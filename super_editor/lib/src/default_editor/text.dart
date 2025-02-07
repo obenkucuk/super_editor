@@ -1163,6 +1163,26 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
         layerBeneathBuilder: (context, textLayout) {
           return Stack(
             children: [
+              TextLayoutSelectionHighlight(
+                textLayout: textLayout,
+                style: SelectionHighlightStyle(
+                  color: widget.selectionColor,
+                ).copyWith(
+                  color: Colors.amber.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.horizontal(left: Radius.circular(16)),
+                ),
+                selection: const TextSelection(baseOffset: 11, extentOffset: 22),
+              ),
+              // TextLayoutSelectionHighlight(
+              //   textLayout: textLayout,
+              //   style: SelectionHighlightStyle(
+              //     color: widget.selectionColor,
+              //   ).copyWith(
+              //     color: Colors.amber.withValues(alpha: 0.8),
+              //     borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
+              //   ),
+              //   selection: const TextSelection(baseOffset: 22, extentOffset: 25),
+              // ),
               // Selection highlight beneath the text.
               if (widget.text.length > 0)
                 TextLayoutSelectionHighlight(

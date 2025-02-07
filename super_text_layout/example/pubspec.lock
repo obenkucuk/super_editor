@@ -36,11 +36,12 @@ packages:
   attributed_text:
     dependency: transitive
     description:
-      name: attributed_text
-      sha256: fb65cf441784612544eda4d5df7a3caad56e7f673c68bf1d48d9048228375189
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.4.0"
+      path: attributed_text
+      ref: main
+      resolved-ref: "71240b857c5d302ca793e215d5f212ef96e6c1be"
+      url: "git@github.com:obenkucuk/super_editor.git"
+    source: git
+    version: "0.4.3"
   boolean_selector:
     dependency: transitive
     description:
@@ -382,7 +383,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.1.17"
+    version: "0.1.18"
   term_glyph:
     dependency: transitive
     description:

@@ -56,26 +56,26 @@ class _SuperTextExampleScreenState extends State<SuperTextExampleScreen> with Ti
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader("Welcome to super_text_layout"),
+                // _buildHeader("Welcome to super_text_layout"),
                 // SuperTextWithSelection examples
-                _buildSubHeader("SuperTextWithSelection Widget"),
-                _buildDescription(
-                    "SuperTextWithSelection is a product-level widget that renders text with traditional user selections. If you want to build a custom text decoration experience, see SuperText."),
-                _buildSuperTextWithSelectionStaticSingle(),
-                _buildSuperTextWithSelectionRobot(),
-                _buildSuperTextWithSelectionStaticMulti(),
-                const SizedBox(height: 48),
-                // SuperText examples
-                _buildSubHeader("SuperText Widget"),
-                _buildDescription(
-                    "SuperText is a platform, upon which you can build various text experiences. A SuperText widget allows you to build an arbitrary UI beneath the text, and above the text."),
-                _buildCharacterRainbow(),
-                _buildSingleCaret(),
-                _buildSingleSelectionHighlight(),
+                // _buildSubHeader("SuperTextWithSelection Widget"),
+                // _buildDescription(
+                //     "SuperTextWithSelection is a product-level widget that renders text with traditional user selections. If you want to build a custom text decoration experience, see SuperText."),
+                // _buildSuperTextWithSelectionStaticSingle(),
+                // _buildSuperTextWithSelectionRobot(),
+                // _buildSuperTextWithSelectionStaticMulti(),
+                // const SizedBox(height: 48),
+                // // SuperText examples
+                // _buildSubHeader("SuperText Widget"),
+                // _buildDescription(
+                //     "SuperText is a platform, upon which you can build various text experiences. A SuperText widget allows you to build an arbitrary UI beneath the text, and above the text."),
+                // _buildCharacterRainbow(),
+                // _buildSingleCaret(),
+                // _buildSingleSelectionHighlight(),
                 _buildSingleSelectionHighlightRainbow(),
-                _buildComposingRegionUnderline(),
-                _buildMultiUserSelections(),
-                _buildEmptySelection(),
+                // _buildComposingRegionUnderline(),
+                // _buildMultiUserSelections(),
+                // _buildEmptySelection(),
                 const SizedBox(height: 48),
               ],
             ),
@@ -235,26 +235,23 @@ class _SuperTextExampleScreenState extends State<SuperTextExampleScreen> with Ti
         layerAboveBuilder: (context, textLayout) {
           return Stack(
             children: [
-              RainbowBuilder(builder: (context, color) {
-                return TextLayoutCaret(
-                  textLayout: textLayout,
-                  style: _primaryCaretStyle.copyWith(color: color),
-                  position: const TextPosition(offset: 21),
-                );
-              }),
+              TextLayoutCaret(
+                textLayout: textLayout,
+                style: _primaryCaretStyle.copyWith(color: Colors.red),
+                position: const TextPosition(offset: 21),
+              )
             ],
           );
         },
         layerBeneathBuilder: (context, textLayout) {
           return Stack(
             children: [
-              RainbowBuilder(builder: (context, color) {
-                return TextLayoutSelectionHighlight(
-                  textLayout: textLayout,
-                  style: _primaryHighlightStyle.copyWith(color: color.withValues(alpha: 0.2)),
-                  selection: const TextSelection(baseOffset: 11, extentOffset: 21),
-                );
-              }),
+              TextLayoutSelectionHighlight(
+                textLayout: textLayout,
+                style: _primaryHighlightStyle.copyWith(
+                    color: Colors.amber.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16)),
+                selection: const TextSelection(baseOffset: 11, extentOffset: 41),
+              ),
             ],
           );
         },
