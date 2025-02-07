@@ -18,6 +18,7 @@ final _log = attributionsLog;
 /// is exclusively intended for visual text styles.
 // TODO: there is a mixture of mutable and immutable behavior in this class.
 //       Pick one or the other, or offer 2 classes: mutable and immutable (#113)
+
 class AttributedText {
   /// The default character that's inserted in place of placeholders when converting
   /// an [AttributedText] to plain text.
@@ -86,6 +87,18 @@ class AttributedText {
 
       _textWithPlaceholders = buffer.toString();
     }
+
+    sectences = _sectences;
+  }
+
+  late final List<({int index, String text})> sectences;
+
+  List<({int index, String text})> get _sectences {
+    final sentenceTexts = toPlainText().split(RegExp(r'(?<=[.!?])\s+'));
+
+    return sentenceTexts.mapIndexed((index, text) {
+      return (index: index, text: text);
+    }).toList();
   }
 
   void _validatePlaceholderIndices() {
