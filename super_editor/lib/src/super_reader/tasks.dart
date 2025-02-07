@@ -42,6 +42,7 @@ class ReadOnlyTaskComponentBuilder implements ComponentBuilder {
     }
 
     return TaskComponent(
+      nodeId: componentViewModel.nodeId,
       key: componentContext.componentKey,
       viewModel: componentViewModel,
     );

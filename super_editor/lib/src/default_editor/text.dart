@@ -681,6 +681,7 @@ class TextComponent extends StatefulWidget {
   const TextComponent({
     Key? key,
     required this.text,
+    this.nodeId,
     this.textAlign,
     this.textDirection,
     this.textScaler,
@@ -693,6 +694,8 @@ class TextComponent extends StatefulWidget {
     this.underlines = const [],
     this.showDebugPaint = false,
   }) : super(key: key);
+
+  final String? nodeId;
 
   final AttributedText text;
 
@@ -1143,13 +1146,16 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
   Widget build(BuildContext context) {
     editorLayoutLog.finer('Building a TextComponent with key: ${widget.key}');
 
+// TODO: bu ignore pointer edit için aktif, seçim için pasif olmalı
     return IgnorePointer(
+      ignoring: false,
       child: SuperText(
         key: _textKey,
         richText: widget.text.computeInlineSpan(
           context,
           _textStyleWithBlockType,
           widget.inlineWidgetBuilders,
+          nodeId: widget.nodeId,
         ),
         textAlign: widget.textAlign ?? TextAlign.left,
         textDirection: widget.textDirection ?? TextDirection.ltr,

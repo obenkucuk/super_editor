@@ -199,6 +199,7 @@ class ListItemComponentBuilder implements ComponentBuilder {
     if (componentViewModel is UnorderedListItemComponentViewModel) {
       return UnorderedListItemComponent(
         componentKey: componentContext.componentKey,
+        nodeId: componentViewModel.nodeId,
         text: componentViewModel.text,
         styleBuilder: componentViewModel.textStyleBuilder,
         indent: componentViewModel.indent,
@@ -213,6 +214,7 @@ class ListItemComponentBuilder implements ComponentBuilder {
     } else if (componentViewModel is OrderedListItemComponentViewModel) {
       return OrderedListItemComponent(
         componentKey: componentContext.componentKey,
+        nodeId: componentViewModel.nodeId,
         indent: componentViewModel.indent,
         listIndex: componentViewModel.ordinalValue!,
         text: componentViewModel.text,
@@ -508,6 +510,7 @@ class UnorderedListItemComponent extends StatefulWidget {
   const UnorderedListItemComponent({
     Key? key,
     required this.componentKey,
+    this.nodeId,
     required this.text,
     this.textDirection = TextDirection.ltr,
     this.textAlignment = TextAlign.left,
@@ -526,6 +529,7 @@ class UnorderedListItemComponent extends StatefulWidget {
     this.showDebugPaint = false,
   }) : super(key: key);
 
+  final String? nodeId;
   final GlobalKey componentKey;
   final AttributedText text;
   final TextDirection textDirection;
@@ -596,6 +600,7 @@ class _UnorderedListItemComponentState extends State<UnorderedListItemComponent>
             Expanded(
               child: TextComponent(
                 key: _innerTextComponentKey,
+                nodeId: widget.nodeId,
                 text: widget.text,
                 textDirection: widget.textDirection,
                 textAlign: widget.textAlignment,
@@ -682,6 +687,7 @@ class OrderedListItemComponent extends StatefulWidget {
   const OrderedListItemComponent({
     Key? key,
     required this.componentKey,
+    this.nodeId,
     required this.listIndex,
     required this.text,
     this.textDirection = TextDirection.ltr,
@@ -701,6 +707,7 @@ class OrderedListItemComponent extends StatefulWidget {
     this.showDebugPaint = false,
   }) : super(key: key);
 
+  final String? nodeId;
   final GlobalKey componentKey;
   final int listIndex;
   final AttributedText text;
@@ -773,6 +780,7 @@ class _OrderedListItemComponentState extends State<OrderedListItemComponent> {
             Expanded(
               child: TextComponent(
                 key: _innerTextComponentKey,
+                nodeId: widget.nodeId,
                 text: widget.text,
                 textDirection: widget.textDirection,
                 textAlign: widget.textAlignment,

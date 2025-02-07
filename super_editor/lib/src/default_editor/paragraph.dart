@@ -347,6 +347,7 @@ class _ParagraphComponentState extends State<ParagraphComponent>
           Expanded(
             child: TextComponent(
               key: _textKey,
+              nodeId: widget.viewModel.nodeId,
               text: widget.viewModel.text,
               textDirection: widget.viewModel.textDirection,
               textAlign: widget.viewModel.textAlignment,

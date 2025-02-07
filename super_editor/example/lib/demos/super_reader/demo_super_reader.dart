@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:super_editor/super_editor.dart';
+import 'package:super_editor_markdown/super_editor_markdown.dart';
 
 import 'example_document.dart';
 
@@ -21,7 +22,7 @@ class _SuperReaderDemoState extends State<SuperReaderDemo> {
   @override
   void initState() {
     super.initState();
-    _document = createInitialDocument();
+    _document = deserializeMarkdownToDocument(serializeDocumentToMarkdown(createInitialDocument()));
     _overlayController = MagnifierAndToolbarController();
     _iosReaderControlsController = SuperReaderIosControlsController(
       toolbarBuilder: _buildToolbar,
@@ -127,21 +128,31 @@ class _SuperReaderDemoState extends State<SuperReaderDemo> {
 
   @override
   Widget build(BuildContext context) {
-    return SuperReaderIosControlsScope(
-      controller: _iosReaderControlsController,
-      child: SuperReader(
-        document: _document,
-        selection: _selection,
-        overlayController: _overlayController,
-        selectionLayerLinks: _selectionLayerLinks,
-        stylesheet: defaultStylesheet.copyWith(
-          addRulesAfter: [
-            taskStyles,
-          ],
-        ),
-        androidToolbarBuilder: (_) => AndroidTextEditingFloatingToolbar(
-          onCopyPressed: _copy,
-          onSelectAllPressed: _selectAll,
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          final node = _document.getNodeById('3fb4da8b-a210-41c7-9131-cda9a8dd320c');
+
+          print('Node: $node');
+        },
+        child: const Icon(Icons.select_all),
+      ),
+      body: SuperReaderIosControlsScope(
+        controller: _iosReaderControlsController,
+        child: SuperReader(
+          document: _document,
+          selection: _selection,
+          overlayController: _overlayController,
+          selectionLayerLinks: _selectionLayerLinks,
+          stylesheet: defaultStylesheet.copyWith(
+            addRulesAfter: [
+              taskStyles,
+            ],
+          ),
+          androidToolbarBuilder: (_) => AndroidTextEditingFloatingToolbar(
+            onCopyPressed: _copy,
+            onSelectAllPressed: _selectAll,
+          ),
         ),
       ),
     );

@@ -348,9 +348,11 @@ class TaskComponent extends StatefulWidget {
   const TaskComponent({
     Key? key,
     required this.viewModel,
+    this.nodeId,
     this.showDebugPaint = false,
   }) : super(key: key);
 
+  final String? nodeId;
   final TaskComponentViewModel viewModel;
   final bool showDebugPaint;
 
@@ -408,6 +410,7 @@ class _TaskComponentState extends State<TaskComponent> with ProxyDocumentCompone
           Expanded(
             child: TextComponent(
               key: _textKey,
+              nodeId: widget.nodeId,
               text: widget.viewModel.text,
               textDirection: widget.viewModel.textDirection,
               textAlign: widget.viewModel.textAlignment,

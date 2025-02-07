@@ -1,4 +1,6 @@
 import 'package:attributed_text/attributed_text.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
 
@@ -24,8 +26,9 @@ extension ComputeTextSpan on AttributedText {
   InlineSpan computeInlineSpan(
     BuildContext context,
     AttributionStyleBuilder styleBuilder,
-    InlineWidgetBuilderChain inlineWidgetBuilders,
-  ) {
+    InlineWidgetBuilderChain inlineWidgetBuilders, {
+    String? nodeId,
+  }) {
     if (isEmpty) {
       // There is no text and therefore no attributions.
       return TextSpan(text: '', style: styleBuilder({}));
@@ -76,6 +79,10 @@ extension ComputeTextSpan on AttributedText {
           TextSpan(
             text: substring(start, contentEnd),
             style: styleBuilder(span.attributions),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
+                print('Tapped on AttributedText with nodeId: $nodeId and text: ${substring(start, contentEnd)}');
+              },
           ),
         );
       }
@@ -100,7 +107,7 @@ extension ComputeTextSpan on AttributedText {
     return TextSpan(
       text: "",
       children: inlineSpans,
-      style: styleBuilder({}),
+      style: styleBuilder({}).copyWith(backgroundColor: Colors.amber),
     );
   }
 
