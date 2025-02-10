@@ -28,6 +28,7 @@ extension ComputeTextSpan on AttributedText {
     AttributionStyleBuilder styleBuilder,
     InlineWidgetBuilderChain inlineWidgetBuilders, {
     String? nodeId,
+    List<TapGestureRecognizer>? gestureRecognizers,
   }) {
     if (isEmpty) {
       // There is no text and therefore no attributions.
@@ -79,10 +80,6 @@ extension ComputeTextSpan on AttributedText {
           TextSpan(
             text: substring(start, contentEnd),
             style: styleBuilder(span.attributions),
-            recognizer: TapGestureRecognizer()
-              ..onTap = () {
-                print('Tapped on AttributedText with nodeId: $nodeId and text: ');
-              },
           ),
         );
       }
@@ -151,7 +148,14 @@ extension ComputeTextSpan on AttributedText {
             // Grup TextSpan'i oluştur
             groupedSpans.add(
               TextSpan(
-                children: currentGroup,
+                children: currentGroup
+                    .map((e) => TextSpan(
+                          text: e.text,
+                          style: e.style,
+                          children: e.children,
+                          recognizer: gestureRecognizers?.elementAt(sentence.index),
+                        ))
+                    .toList(),
                 style: styleBuilder({}),
               ),
             );
@@ -167,13 +171,12 @@ extension ComputeTextSpan on AttributedText {
       return groupedSpans;
     }
 
-    return TextSpan(
-        text: "",
-        children: groupWordsBySentences(
-          wordSpans: editedInlineSpans,
-          sentences: sectences,
-        ),
-        style: styleBuilder({}));
+    final grupedSpans = groupWordsBySentences(
+      wordSpans: editedInlineSpans,
+      sentences: sectences,
+    );
+
+    return TextSpan(text: "", children: grupedSpans, style: styleBuilder({}));
   }
 
   /// Returns a Flutter [TextSpan] that is styled based on the

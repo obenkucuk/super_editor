@@ -3,33 +3,15 @@
 import 'dart:collection';
 import 'dart:math';
 
-import 'package:attributed_text/attributed_text.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide SelectableText;
 import 'package:flutter/services.dart';
-import 'package:super_editor/src/core/document.dart';
-import 'package:super_editor/src/core/document_composer.dart';
-import 'package:super_editor/src/core/document_layout.dart';
-import 'package:super_editor/src/core/document_selection.dart';
-import 'package:super_editor/src/core/edit_context.dart';
-import 'package:super_editor/src/core/editor.dart';
-import 'package:super_editor/src/core/styles.dart';
-import 'package:super_editor/src/default_editor/attributions.dart';
-import 'package:super_editor/src/infrastructure/_logging.dart';
-import 'package:super_editor/src/infrastructure/attributed_text_styles.dart';
-import 'package:super_editor/src/infrastructure/composable_text.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:super_editor/src/infrastructure/flutter/geometry.dart';
 import 'package:super_editor/src/infrastructure/key_event_extensions.dart';
-import 'package:super_editor/src/infrastructure/keyboard.dart';
-import 'package:super_editor/src/infrastructure/strings.dart';
+import 'package:super_editor/super_editor.dart';
 import 'package:super_text_layout/super_text_layout.dart';
-
-import 'layout_single_column/layout_single_column.dart';
-import 'list_items.dart';
-import 'multi_node_editing.dart';
-import 'paragraph.dart';
-import 'selection_upstream_downstream.dart';
-import 'text_tools.dart';
 
 @immutable
 class TextNode extends DocumentNode {
@@ -740,6 +722,29 @@ class TextComponent extends StatefulWidget {
 class TextComponentState extends State<TextComponent> with DocumentComponent implements TextComposable {
   final _textKey = GlobalKey<ProseTextState>();
 
+  late final List<TapGestureRecognizer> sentenceGestureRecognizers;
+
+  @override
+  void initState() {
+    super.initState();
+
+    sentenceGestureRecognizers = widget.text.sectences
+        .map((_) => TapGestureRecognizer()
+          ..onTap = () {
+            SuperReader.defaultSentenceTap?.call(widget.nodeId, _.text, _.index);
+          })
+        .toList();
+  }
+
+  @override
+  dispose() {
+    widget.text.dispose();
+    for (final recognizer in sentenceGestureRecognizers) {
+      recognizer.dispose();
+    }
+    super.dispose();
+  }
+
   @visibleForTesting
   ProseTextLayout get textLayout => _textKey.currentState!.textLayout;
 
@@ -1147,6 +1152,21 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
     editorLayoutLog.finer('Building a TextComponent with key: ${widget.key}');
 
 // TODO: bu ignore pointer edit için aktif, seçim için pasif olmalı
+
+    final notifier = SentenceSelection.sentenceSelections[widget.nodeId];
+
+    if (notifier == null) {
+      return getChild(context, null);
+    } else {
+      return ValueListenableBuilder(
+          valueListenable: notifier,
+          builder: (context, notifier, child) {
+            return getChild(context, notifier);
+          });
+    }
+  }
+
+  IgnorePointer getChild(BuildContext context, SentenceSelection? sentence) {
     return IgnorePointer(
       ignoring: false,
       child: SuperText(
@@ -1156,6 +1176,7 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
           _textStyleWithBlockType,
           widget.inlineWidgetBuilders,
           nodeId: widget.nodeId,
+          gestureRecognizers: sentenceGestureRecognizers,
         ),
         textAlign: widget.textAlign ?? TextAlign.left,
         textDirection: widget.textDirection ?? TextDirection.ltr,
@@ -1163,26 +1184,29 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
         layerBeneathBuilder: (context, textLayout) {
           return Stack(
             children: [
-              TextLayoutSelectionHighlight(
-                textLayout: textLayout,
-                style: SelectionHighlightStyle(
-                  color: widget.selectionColor,
-                ).copyWith(
-                  color: Colors.amber.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.horizontal(left: Radius.circular(16)),
-                ),
-                selection: const TextSelection(baseOffset: 11, extentOffset: 22),
-              ),
-              // TextLayoutSelectionHighlight(
-              //   textLayout: textLayout,
-              //   style: SelectionHighlightStyle(
-              //     color: widget.selectionColor,
-              //   ).copyWith(
-              //     color: Colors.amber.withValues(alpha: 0.8),
-              //     borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
-              //   ),
-              //   selection: const TextSelection(baseOffset: 22, extentOffset: 25),
-              // ),
+              TextSentenceSelectionHighlight(
+                      textLayout: textLayout,
+                      style: SelectionHighlightStyle(
+                        color: Colors.amber,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      selection: sentence?.getOffsetForSentence)
+                  .animate(
+                    key: ValueKey(sentence),
+                  )
+                  .fadeIn(),
+              if (sentence != null)
+                TextSentenceSelectionHighlight(
+                        textLayout: textLayout,
+                        style: SelectionHighlightStyle(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        selection: sentence.wordSelection)
+                    .animate(
+                      key: ValueKey(sentence.wordSelection),
+                    )
+                    .fadeIn(),
               // Selection highlight beneath the text.
               if (widget.text.length > 0)
                 TextLayoutSelectionHighlight(

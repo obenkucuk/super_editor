@@ -22,14 +22,45 @@ class TextLayoutSelectionHighlight extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: TextSelectionPainter(
-        textLayout: textLayout,
-        selectionColor: style.color,
-        borderRadius: style.borderRadius,
-        textSelection: selection,
-      ),
-    );
+    return LayoutBuilder(builder: (context, c) {
+      return CustomPaint(
+        size: Size(c.maxWidth, c.maxHeight),
+        painter: TextSelectionPainter(
+          textLayout: textLayout,
+          selectionColor: style.color,
+          borderRadius: style.borderRadius,
+          textSelection: selection,
+        ),
+      );
+    });
+  }
+}
+
+class TextSentenceSelectionHighlight extends StatelessWidget {
+  const TextSentenceSelectionHighlight({
+    Key? key,
+    required this.textLayout,
+    required this.style,
+    required this.selection,
+  }) : super(key: key);
+
+  final TextLayout? textLayout;
+  final SelectionHighlightStyle style;
+  final TextSelection? selection;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, c) {
+      return CustomPaint(
+        size: Size(c.maxWidth, c.maxHeight),
+        painter: TextSentenceSelectionPainter(
+          textLayout: textLayout,
+          selectionColor: style.color,
+          borderRadius: style.borderRadius,
+          textSelection: selection,
+        ),
+      );
+    });
   }
 }
 
@@ -194,6 +225,84 @@ class TextSelectionPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(TextSelectionPainter oldDelegate) {
+    return textLayout != oldDelegate.textLayout ||
+        textSelection != oldDelegate.textSelection ||
+        selectionColor != oldDelegate.selectionColor;
+  }
+}
+
+class TextSentenceSelectionPainter extends CustomPainter {
+  TextSentenceSelectionPainter({
+    required this.textLayout,
+    required this.textSelection,
+    this.borderRadius = BorderRadius.zero,
+    required this.selectionColor,
+  }) : _selectionPaint = Paint()..color = selectionColor;
+
+  final TextLayout? textLayout;
+  final TextSelection? textSelection;
+  final Color selectionColor;
+  final BorderRadius borderRadius;
+  final Paint _selectionPaint;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (textLayout == null) {
+      // No layout is available yet. Nothing to paint.
+      return;
+    }
+    if (textSelection == null || textSelection == const TextSelection.collapsed(offset: -1)) {
+      // No selection to paint. Return.
+      return;
+    }
+
+    final selectionBoxes = textLayout!.getBoxesForSelection(
+      textSelection!,
+      boxHeightStyle: BoxHeightStyle.max,
+    );
+
+    List<List<TextBox>> groupByB(List<TextBox> boxes) {
+      Map<double, List<TextBox>> grouped = {};
+
+      for (var box in boxes) {
+        grouped.putIfAbsent(box.bottom, () => []).add(box);
+      }
+
+      return grouped.values.toList();
+    }
+
+    final mergedBoxes = groupByB(selectionBoxes).map((rowBoxes) {
+      return TextBox.fromLTRBD(rowBoxes.first.left, rowBoxes.first.top, rowBoxes.last.right, rowBoxes.first.bottom,
+          rowBoxes.first.direction);
+    });
+
+    for (final box in mergedBoxes) {
+      final rawRect = box.toRect();
+      final rect = Rect.fromLTWH(
+        rawRect.left - 5,
+        (rawRect.top - selectionHighlightBoxVerticalExpansion),
+        rawRect.width + 10,
+        rawRect.height + (selectionHighlightBoxVerticalExpansion * 2),
+      );
+      final rrect = RRect.fromRectAndCorners(rect,
+          topLeft: borderRadius.topLeft,
+          topRight: borderRadius.topRight,
+          bottomLeft: borderRadius.bottomLeft,
+          bottomRight: borderRadius.bottomRight);
+
+      canvas.drawRRect(
+        // Note: If the rect has no width then we've selected an empty line. Give
+        //       that line a slight width for visibility.
+        rect.width > 0
+            ? rrect
+            : RRect.fromRectAndRadius(Rect.fromLTWH(rect.left, rect.top, 5, rect.height), Radius.zero),
+        _selectionPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(TextSentenceSelectionPainter oldDelegate) {
     return textLayout != oldDelegate.textLayout ||
         textSelection != oldDelegate.textSelection ||
         selectionColor != oldDelegate.selectionColor;

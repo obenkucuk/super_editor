@@ -14,8 +14,11 @@ topics:
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=1.17.0"
 
 dependencies:
+  flutter:
+    sdk: flutter
   characters: ^1.2.0
   collection: ^1.15.0
   logging: ^1.3.0
