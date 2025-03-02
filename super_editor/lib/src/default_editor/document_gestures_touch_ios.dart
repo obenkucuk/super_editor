@@ -259,6 +259,7 @@ class SuperEditorIosControlsController {
 class IosDocumentTouchInteractor extends StatefulWidget {
   const IosDocumentTouchInteractor({
     Key? key,
+    this.readOnly = false,
     required this.focusNode,
     required this.editor,
     required this.document,
@@ -273,10 +274,15 @@ class IosDocumentTouchInteractor extends StatefulWidget {
     this.contentTapHandlers,
     this.dragAutoScrollBoundary = const AxisOffset.symmetric(54),
     this.showDebugPaint = false,
+    this.mainScrollController,
     required this.child,
   }) : super(key: key);
 
+  final bool readOnly;
+
   final FocusNode focusNode;
+
+  final ScrollController? mainScrollController;
 
   final Editor editor;
   final Document document;
@@ -458,8 +464,11 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
 
     // Calculate the y-value of the selection extent side of the selected content so that we
     // can ensure they're visible.
-    final selectionRectInDocumentLayout =
-        widget.getDocumentLayout().getRectForSelection(selection.base, selection.extent)!;
+    final selectionRectInDocumentLayout = widget.getDocumentLayout().getRectForSelection(
+          selection.base,
+          selection.extent,
+          insertScrollOffset: false,
+        )!;
     final extentOffsetInViewport = widget.document.getAffinityForSelection(selection) == TextAffinity.downstream
         ? _documentOffsetToViewportOffset(selectionRectInDocumentLayout.bottomCenter)
         : _documentOffsetToViewportOffset(selectionRectInDocumentLayout.topCenter);
@@ -556,9 +565,14 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       return;
     }
 
-    if (_isOverBaseHandle(interactorOffset) ||
-        _isOverExtentHandle(interactorOffset) ||
-        _isOverCollapsedHandle(interactorOffset)) {
+    final overBaseHandle = _isOverBaseHandle(interactorOffset);
+    final overExtentHandle = _isOverExtentHandle(interactorOffset);
+
+    if (overBaseHandle == null || overExtentHandle == null) {
+      return;
+    }
+
+    if (overBaseHandle || overExtentHandle || _isOverCollapsedHandle(interactorOffset)) {
       // Don't do anything for long presses over the handles, because we want the user
       // to be able to drag them without worrying about how long they've pressed.
       return;
@@ -583,7 +597,7 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       ..hideToolbar()
       ..showMagnifier();
 
-    widget.focusNode.requestFocus();
+    if (!widget.readOnly) widget.focusNode.requestFocus();
   }
 
   void _onTapCancel() {
@@ -623,7 +637,8 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     final selection = widget.selection.value;
     if (selection != null &&
         !selection.isCollapsed &&
-        (_isOverBaseHandle(details.localPosition) || _isOverExtentHandle(details.localPosition))) {
+        ((_isOverBaseHandle(details.localPosition) ?? false) ||
+            (_isOverExtentHandle(details.localPosition) ?? false))) {
       _controlsController!.toggleToolbar();
       return;
     }
@@ -709,7 +724,7 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       _controlsController!.hideToolbar();
     }
 
-    widget.focusNode.requestFocus();
+    if (!widget.readOnly) widget.focusNode.requestFocus();
   }
 
   DocumentPosition _moveTapPositionToWordBoundary(DocumentPosition docPosition) {
@@ -756,7 +771,8 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     final selection = widget.selection.value;
     if (selection != null &&
         !selection.isCollapsed &&
-        (_isOverBaseHandle(details.localPosition) || _isOverExtentHandle(details.localPosition))) {
+        ((_isOverBaseHandle(details.localPosition) ?? false) ||
+            (_isOverExtentHandle(details.localPosition) ?? false))) {
       return;
     }
 
@@ -795,7 +811,7 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       _controlsController!.showToolbar();
     }
 
-    widget.focusNode.requestFocus();
+    if (!widget.readOnly) widget.focusNode.requestFocus();
   }
 
   bool _selectBlockAt(DocumentPosition position) {
@@ -877,7 +893,7 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       _controlsController!.showToolbar();
     }
 
-    widget.focusNode.requestFocus();
+    if (!widget.readOnly) widget.focusNode.requestFocus();
   }
 
   void _onPanDown(DragDownDetails details) {
@@ -923,10 +939,10 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     } else if (selection.isCollapsed && _isOverCollapsedHandle(details.localPosition)) {
       _dragMode = DragMode.collapsed;
       _dragHandleType = HandleType.collapsed;
-    } else if (_isOverBaseHandle(details.localPosition)) {
+    } else if (_isOverBaseHandle(details.localPosition) ?? false) {
       _dragMode = DragMode.base;
       _dragHandleType = HandleType.upstream;
-    } else if (_isOverExtentHandle(details.localPosition)) {
+    } else if (_isOverExtentHandle(details.localPosition) ?? false) {
       _dragMode = DragMode.extent;
       _dragHandleType = HandleType.downstream;
     } else {
@@ -951,7 +967,11 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       return false;
     }
 
-    final extentRect = _docLayout.getRectForPosition(collapsedPosition)!;
+    final extentRect = _docLayout.getRectForPosition(collapsedPosition);
+
+    if (extentRect == null) {
+      return false;
+    }
     final caretHitArea = Rect.fromLTRB(
       extentRect.left - 24,
       extentRect.top,
@@ -963,13 +983,16 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     return caretHitArea.contains(docOffset);
   }
 
-  bool _isOverBaseHandle(Offset interactorOffset) {
+  bool? _isOverBaseHandle(Offset interactorOffset) {
     final basePosition = widget.selection.value?.base;
     if (basePosition == null) {
       return false;
     }
 
-    final baseRect = _docLayout.getRectForPosition(basePosition)!;
+    final baseRect = _docLayout.getRectForPosition(basePosition);
+    if (baseRect == null) {
+      return false;
+    }
     // The following caretRect offset and size were chosen empirically, based
     // on trying to drag the handle from various locations near the handle.
     final caretRect = Rect.fromLTWH(baseRect.left - 24, baseRect.top - 24, 48, baseRect.height + 48);
@@ -978,13 +1001,16 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     return caretRect.contains(docOffset);
   }
 
-  bool _isOverExtentHandle(Offset interactorOffset) {
+  bool? _isOverExtentHandle(Offset interactorOffset) {
     final extentPosition = widget.selection.value?.extent;
     if (extentPosition == null) {
       return false;
     }
 
-    final extentRect = _docLayout.getRectForPosition(extentPosition)!;
+    final extentRect = _docLayout.getRectForPosition(extentPosition);
+    if (extentRect == null) {
+      return false;
+    }
     // The following caretRect offset and size were chosen empirically, based
     // on trying to drag the handle from various locations near the handle.
     final caretRect = Rect.fromLTWH(extentRect.left - 24, extentRect.top, 48, extentRect.height + 32);
@@ -1019,10 +1045,9 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
 
     if (_isLongPressInProgress) {
       final fingerDragDelta = _globalDragOffset! - _globalStartDragOffset!;
-      final scrollDelta = _dragStartScrollOffset! - scrollPosition.pixels;
       final fingerDocumentOffset = _docLayout.getDocumentOffsetFromAncestorOffset(details.globalPosition);
       final fingerDocumentPosition = _docLayout.getDocumentPositionNearestToOffset(
-        _startDragPositionOffset! + fingerDragDelta - Offset(0, scrollDelta),
+        _startDragPositionOffset! + fingerDragDelta,
       );
       _longPressStrategy!.onLongPressDragUpdate(fingerDocumentOffset, fingerDocumentPosition);
     } else {
@@ -1039,9 +1064,10 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
 
   void _updateSelectionForNewDragHandleLocation() {
     final docDragDelta = _globalDragOffset! - _globalStartDragOffset!;
-    final dragScrollDelta = _dragStartScrollOffset! - scrollPosition.pixels;
-    final docDragPosition = _docLayout
-        .getDocumentPositionNearestToOffset(_startDragPositionOffset! + docDragDelta - Offset(0, dragScrollDelta));
+
+    final position = _startDragPositionOffset! + docDragDelta;
+
+    final docDragPosition = _docLayout.getDocumentPositionNearestToOffset(position);
     if (docDragPosition == null) {
       return;
     }
@@ -1300,16 +1326,23 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
 
   void _selectPosition(DocumentPosition position) {
     editorGesturesLog.fine("Setting document selection to $position");
-    widget.editor.execute([
-      ChangeSelectionRequest(
-        DocumentSelection.collapsed(
-          position: position,
+    if (!widget.readOnly) {
+      widget.editor.execute([
+        ChangeSelectionRequest(
+          DocumentSelection.collapsed(
+            position: position,
+          ),
+          SelectionChangeType.placeCaret,
+          SelectionReason.userInteraction,
         ),
-        SelectionChangeType.placeCaret,
-        SelectionReason.userInteraction,
-      ),
-      const ClearComposingRegionRequest(),
-    ]);
+        const ClearComposingRegionRequest(),
+      ]);
+    } else {
+      widget.editor.execute([
+        const ClearSelectionRequest(),
+        const ClearComposingRegionRequest(),
+      ]);
+    }
   }
 
   /// Updates the magnifier focal point in relation to the current drag position.
@@ -1323,20 +1356,19 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       docPositionToMagnify = _docLayout.getDocumentPositionNearestToOffset(tapDownDocumentOffset);
     } else {
       final docDragDelta = _globalDragOffset! - _globalStartDragOffset!;
-      final dragScrollDelta = _dragStartScrollOffset! - scrollPosition.pixels;
-      docPositionToMagnify = _docLayout
-          .getDocumentPositionNearestToOffset(_startDragPositionOffset! + docDragDelta - Offset(0, dragScrollDelta));
+      docPositionToMagnify = _docLayout.getDocumentPositionNearestToOffset(_startDragPositionOffset! + docDragDelta);
     }
 
-    final centerOfContentAtOffset = _interactorOffsetToDocumentOffset(
-      _docLayout.getRectForPosition(docPositionToMagnify!)!.center,
-    );
+    final position = _docLayout.getRectForPosition(docPositionToMagnify!)!.center;
 
-    _magnifierFocalPointInDocumentSpace.value = centerOfContentAtOffset;
+    final globalOffset = interactorBox.globalToLocal(position);
+
+    _magnifierFocalPointInDocumentSpace.value = globalOffset;
   }
 
   void _updateDragStartLocation(Offset globalOffset) {
     _globalStartDragOffset = globalOffset;
+
     final handleOffsetInInteractor = interactorBox.globalToLocal(globalOffset);
     _dragStartInDoc = _interactorOffsetToDocumentOffset(handleOffsetInInteractor);
 
@@ -1377,12 +1409,16 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     }
 
     final gestureSettings = MediaQuery.maybeOf(context)?.gestureSettings;
+
+    Offset? cachedPanOffset;
+
     // PanGestureRecognizer is above contents to have first pass at gestures, but it only accepts
     // gestures that are over caret or handles or when a long press is in progress.
     // TapGestureRecognizer is below contents so that it doesn't interferes with buttons and other
     // tappable widgets.
     return SliverHybridStack(
       fillViewport: widget.fillViewport,
+      mainScrollController: widget.scrollController,
       children: [
         // Layer below
         RawGestureDetector(
@@ -1409,7 +1445,9 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
           behavior: HitTestBehavior.translucent,
           gestures: <Type, GestureRecognizerFactory>{
             EagerPanGestureRecognizer: GestureRecognizerFactoryWithHandlers<EagerPanGestureRecognizer>(
-              () => EagerPanGestureRecognizer(),
+              () => EagerPanGestureRecognizer(
+                scrollController: widget.mainScrollController,
+              ),
               (EagerPanGestureRecognizer instance) {
                 instance
                   ..shouldAccept = () {
@@ -1417,15 +1455,22 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
                       return false;
                     }
                     final panDown = interactorBox.globalToLocal(_globalTapDownOffset!);
-                    final isOverHandle =
-                        _isOverBaseHandle(panDown) || _isOverExtentHandle(panDown) || _isOverCollapsedHandle(panDown);
+                    final isOverHandle = (_isOverBaseHandle(panDown) ?? true) ||
+                        (_isOverExtentHandle(panDown) ?? true) ||
+                        _isOverCollapsedHandle(panDown);
                     final res = isOverHandle || _isLongPressInProgress;
                     return res;
                   }
                   ..dragStartBehavior = DragStartBehavior.down
                   ..onDown = _onPanDown
                   ..onStart = _onPanStart
-                  ..onUpdate = _onPanUpdate
+                  ..onUpdate = (details) {
+                    if (_offsetsReachDebounce(details.localPosition, cachedPanOffset, debounce: 16)) {
+                      cachedPanOffset = details.localPosition;
+
+                      _onPanUpdate(details);
+                    }
+                  }
                   ..onEnd = _onPanEnd
                   ..onCancel = _onPanCancel
                   ..gestureSettings = gestureSettings;
@@ -1453,7 +1498,8 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
         // When the user is dragging a handle in this overlay, we
         // are responsible for positioning the focal point for the
         // magnifier to follow. We do that here.
-        return Positioned(
+        return AnimatedPositioned(
+          duration: const Duration(milliseconds: 80),
           left: magnifierFocalPoint.dx,
           top: magnifierFocalPoint.dy,
           child: Leader(
@@ -1550,9 +1596,12 @@ class SuperEditorIosMagnifierOverlayManager extends StatefulWidget {
   const SuperEditorIosMagnifierOverlayManager({
     super.key,
     required this.child,
+    required this.mainScrollController,
   });
 
   final Widget child;
+
+  final ScrollController mainScrollController;
 
   @override
   State<SuperEditorIosMagnifierOverlayManager> createState() => SuperEditorIosMagnifierOverlayManagerState();
@@ -1571,11 +1620,13 @@ class SuperEditorIosMagnifierOverlayManagerState extends State<SuperEditorIosMag
   void didChangeDependencies() {
     super.didChangeDependencies();
     _controlsController = SuperEditorIosControlsScope.rootOf(context);
+
     _overlayPortalController.show();
   }
 
   @override
   Widget build(BuildContext context) {
+    // print(widget.child);
     return SliverHybridStack(
       children: [
         widget.child,
@@ -1620,10 +1671,10 @@ class SuperEditorIosMagnifierOverlayManagerState extends State<SuperEditorIosMag
       BuildContext context, Key magnifierKey, LeaderLink magnifierFocalPoint, bool isVisible) {
     if (CurrentPlatform.isWeb) {
       // Defer to the browser to display overlay controls on mobile.
-      return const SizedBox();
     }
 
     return IOSFollowingMagnifier.roundedRectangle(
+      mainScrollController: widget.mainScrollController,
       magnifierKey: magnifierKey,
       leaderLink: magnifierFocalPoint,
       show: isVisible,
@@ -2010,3 +2061,17 @@ const defaultIosMagnifierSize = Size(133, 96);
 /// The diameter of the small circle that appears on the top and bottom of
 /// expanded iOS text handles in dip.
 const defaultIosHandleBallDiameter = 16.0;
+
+bool _offsetsReachDebounce(Offset? a, Offset? b, {double debounce = 9}) {
+  // return true;
+  // if ((a.dx - b.dx).abs() > debounce || (a.dy - b.dy).abs() > debounce) {
+  //   return true;
+  // }
+
+  // return false;
+
+  if (a == null || b == null) {
+    return true;
+  }
+  return (a - b).distanceSquared > debounce;
+}

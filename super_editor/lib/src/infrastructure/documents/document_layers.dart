@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/widgets.dart';
 import 'package:super_editor/src/core/document_layout.dart';
 import 'package:super_editor/src/infrastructure/content_layers.dart';
@@ -47,7 +49,12 @@ abstract class DocumentLayoutLayerState<WidgetType extends ContentLayerStatefulW
       return null;
     }
 
-    return computeLayoutDataWithDocumentLayout(context, contentElement, contentElement.state as DocumentLayout);
+    try {
+      return computeLayoutDataWithDocumentLayout(context, contentElement, contentElement.state as DocumentLayout);
+    } catch (e) {
+      log('Error computing layout data with document layout: $e');
+      return null;
+    }
   }
 
   @protected

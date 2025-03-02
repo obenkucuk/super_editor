@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:super_editor/src/default_editor/common_editor_operations.dart';
 import 'package:super_editor/src/infrastructure/documents/document_scroller.dart';
+import 'package:super_editor/super_editor.dart';
 
 import 'document.dart';
 import 'document_composer.dart';
@@ -21,6 +22,8 @@ class SuperEditorContext {
   /// should return the current layout as it might change.
   SuperEditorContext({
     required this.editorFocusNode,
+    this.sectionSelection,
+    this.sectionSeparatorBuilder,
     required this.editor,
     required this.document,
     required DocumentLayout Function() getDocumentLayout,
@@ -28,6 +31,9 @@ class SuperEditorContext {
     required this.scroller,
     required this.commonOps,
   }) : _getDocumentLayout = getDocumentLayout;
+
+  final ValueNotifier<DocumentSelection?>? sectionSelection;
+  final List<({int index, String text})> Function(String text)? sectionSeparatorBuilder;
 
   final FocusNode editorFocusNode;
 

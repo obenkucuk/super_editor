@@ -101,6 +101,10 @@ class SuperEditor extends StatefulWidget {
   /// visual components, text styles, and user interaction.
   SuperEditor({
     Key? key,
+    this.sectionSelection,
+    this.sectionSelectionStyles,
+    this.sectionSeparatorBuilder,
+    this.readOnly = false,
     this.focusNode,
     this.autofocus = false,
     this.tapRegionGroupId,
@@ -113,6 +117,7 @@ class SuperEditor extends StatefulWidget {
     this.composer,
     this.scrollController,
     this.documentLayoutKey,
+    this.boxKey,
     Stylesheet? stylesheet,
     this.customStylePhases = const [],
     List<ComponentBuilder>? componentBuilders,
@@ -150,6 +155,12 @@ class SuperEditor extends StatefulWidget {
           const UnknownComponentBuilder(),
         ],
         super(key: key);
+
+  final bool readOnly;
+
+  final ValueNotifier<DocumentSelection?>? sectionSelection;
+
+  final List<({int index, String text})> Function(String text)? sectionSeparatorBuilder;
 
   /// [FocusNode] for the entire `SuperEditor`.
   final FocusNode? focusNode;
@@ -208,11 +219,15 @@ class SuperEditor extends StatefulWidget {
   /// layout within this `SuperEditor`.
   final GlobalKey? documentLayoutKey;
 
+  final GlobalKey? boxKey;
+
   /// Style rules applied through the document presentation.
   final Stylesheet stylesheet;
 
   /// Styles applied to selected content.
   final SelectionStyles selectionStyles;
+
+  final SelectionStyles? sectionSelectionStyles;
 
   /// Policies that determine how selection is modified by other factors, such as
   /// gaining or losing focus.
@@ -380,6 +395,7 @@ class SuperEditorState extends State<SuperEditor> {
   late SingleColumnStylesheetStyler _docStylesheetStyler;
   late SingleColumnLayoutCustomComponentStyler _docLayoutPerComponentBlockStyler;
   late SingleColumnLayoutSelectionStyler _docLayoutSelectionStyler;
+  late SingleColumnLayoutSectionSelectionStyler _docLayoutSectionSelectionStyler;
 
   @visibleForTesting
   FocusNode get focusNode => _focusNode;
@@ -424,6 +440,8 @@ class SuperEditorState extends State<SuperEditor> {
   late SoftwareKeyboardController _softwareKeyboardController;
 
   late ValueNotifier<bool> _isImeConnected;
+
+  late final GlobalKey _boxKey = widget.boxKey ?? GlobalKey();
 
   @override
   void initState() {
@@ -504,6 +522,9 @@ class SuperEditorState extends State<SuperEditor> {
       if (widget.selectionStyles != oldWidget.selectionStyles) {
         _docLayoutSelectionStyler.selectionStyles = widget.selectionStyles;
       }
+      if (widget.sectionSelectionStyles != oldWidget.sectionSelectionStyles) {
+        _docLayoutSectionSelectionStyler.selectionStyles = widget.sectionSelectionStyles ?? widget.selectionStyles;
+      }
       if (widget.stylesheet != oldWidget.stylesheet) {
         _createLayoutPresenter();
       }
@@ -553,6 +574,8 @@ class SuperEditorState extends State<SuperEditor> {
     _scroller = DocumentScroller()..addScrollChangeListener(_scrollChangeSignal.notifyListeners);
 
     editContext = SuperEditorContext(
+      sectionSeparatorBuilder: widget.sectionSeparatorBuilder,
+      sectionSelection: widget.sectionSelection,
       editorFocusNode: _focusNode,
       editor: widget.editor,
       document: widget.editor.document,
@@ -599,6 +622,15 @@ class SuperEditorState extends State<SuperEditor> {
       selectedTextColorStrategy: widget.stylesheet.selectedTextColorStrategy,
     );
 
+    if (widget.sectionSelection case final sectionSelection?) {
+      _docLayoutSectionSelectionStyler = SingleColumnLayoutSectionSelectionStyler(
+        document: document,
+        sectionSelection: sectionSelection,
+        selectionStyles: widget.sectionSelectionStyles ?? widget.selectionStyles,
+        selectedTextColorStrategy: widget.stylesheet.selectedTextColorStrategy,
+      );
+    }
+
     final showComposingUnderline = defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android;
@@ -620,6 +652,7 @@ class SuperEditorState extends State<SuperEditor> {
         // just before the phases that the app wants to be at the end
         // to minimize view model recalculations.
         _docLayoutSelectionStyler,
+        if (widget.sectionSelection != null) _docLayoutSectionSelectionStyler,
         for (final plugin in widget.plugins) //
           ...plugin.appendedStylePhases,
       ],
@@ -693,12 +726,14 @@ class SuperEditorState extends State<SuperEditor> {
             restorePreviousSelectionOnGainFocus: widget.selectionPolicies.restorePreviousSelectionOnGainFocus,
             clearSelectionWhenEditorLosesFocus: widget.selectionPolicies.clearSelectionWhenEditorLosesFocus,
             child: DocumentScaffold(
+              boxKey: _boxKey,
+              document: widget.editor.document,
               documentLayoutLink: _documentLayoutLink,
               documentLayoutKey: _docLayoutKey,
               viewportDecorationBuilder: _buildPlatformSpecificViewportDecorations,
               textInputBuilder: _buildTextInputSystem,
               gestureBuilder: _buildGestureInteractor,
-              scrollController: _scrollController,
+              mainScrollController: _scrollController,
               autoScrollController: _autoScrollController,
               scroller: _scroller,
               presenter: presenter,
@@ -830,8 +865,10 @@ class SuperEditorState extends State<SuperEditor> {
             focalPoint,
             editContext.commonOps,
             SuperEditorIosControlsScope.rootOf(context),
+            widget.readOnly,
           ),
           child: SuperEditorIosMagnifierOverlayManager(
+            mainScrollController: _scrollController,
             child: EditorFloatingCursor(
               editor: widget.editor,
               document: widget.editor.document,
@@ -859,6 +896,7 @@ class SuperEditorState extends State<SuperEditor> {
             editContext.commonOps,
             SuperEditorAndroidControlsScope.rootOf(context),
             editContext.composer.selectionNotifier,
+            widget.readOnly,
           ),
           child: child,
         );
@@ -892,6 +930,8 @@ class SuperEditorState extends State<SuperEditor> {
         );
       case DocumentGestureMode.android:
         return AndroidDocumentTouchInteractor(
+          superEditorContext: editContext,
+          readOnly: widget.readOnly,
           focusNode: _focusNode,
           editor: editContext.editor,
           document: editContext.document,
@@ -912,6 +952,8 @@ class SuperEditorState extends State<SuperEditor> {
         );
       case DocumentGestureMode.iOS:
         return IosDocumentTouchInteractor(
+          readOnly: widget.readOnly,
+          mainScrollController: _scrollController,
           focusNode: _focusNode,
           editor: editContext.editor,
           document: editContext.document,
@@ -943,6 +985,7 @@ Widget iOSSystemPopoverEditorToolbarWithFallbackBuilder(
   LeaderLink focalPoint,
   CommonEditorOperations editorOps,
   SuperEditorIosControlsController editorControlsController,
+  bool readOnly,
 ) {
   if (CurrentPlatform.isWeb) {
     // On web, we defer to the browser's internal overlay controls for mobile.
@@ -961,6 +1004,7 @@ Widget iOSSystemPopoverEditorToolbarWithFallbackBuilder(
     focalPoint,
     editorOps,
     editorControlsController,
+    readOnly,
   );
 }
 
@@ -971,6 +1015,7 @@ Widget defaultIosEditorToolbarBuilder(
   LeaderLink focalPoint,
   CommonEditorOperations editorOps,
   SuperEditorIosControlsController editorControlsController,
+  bool readOnly,
 ) {
   if (CurrentPlatform.isWeb) {
     // On web, we defer to the browser's internal overlay controls for mobile.
@@ -978,6 +1023,7 @@ Widget defaultIosEditorToolbarBuilder(
   }
 
   return DefaultIosEditorToolbar(
+    readOnly: readOnly,
     floatingToolbarKey: floatingToolbarKey,
     focalPoint: focalPoint,
     editorOps: editorOps,
@@ -990,12 +1036,14 @@ class DefaultIosEditorToolbar extends StatelessWidget {
   const DefaultIosEditorToolbar({
     super.key,
     this.floatingToolbarKey,
+    this.readOnly = false,
     required this.focalPoint,
     required this.editorOps,
     required this.editorControlsController,
   });
 
   final Key? floatingToolbarKey;
+  final bool readOnly;
   final LeaderLink focalPoint;
   final CommonEditorOperations editorOps;
   final SuperEditorIosControlsController editorControlsController;
@@ -1003,6 +1051,7 @@ class DefaultIosEditorToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IOSTextEditingFloatingToolbar(
+      readOnly: readOnly,
       floatingToolbarKey: floatingToolbarKey,
       focalPoint: focalPoint,
       onCutPressed: _cut,
@@ -1034,8 +1083,10 @@ Widget defaultAndroidEditorToolbarBuilder(
   CommonEditorOperations editorOps,
   SuperEditorAndroidControlsController editorControlsController,
   ValueListenable<DocumentSelection?> selectionNotifier,
+  bool readOnly,
 ) {
   return DefaultAndroidEditorToolbar(
+    readOnly: readOnly,
     floatingToolbarKey: floatingToolbarKey,
     editorOps: editorOps,
     editorControlsController: editorControlsController,
@@ -1047,11 +1098,14 @@ Widget defaultAndroidEditorToolbarBuilder(
 class DefaultAndroidEditorToolbar extends StatelessWidget {
   const DefaultAndroidEditorToolbar({
     super.key,
+    this.readOnly = false,
     this.floatingToolbarKey,
     required this.editorOps,
     required this.editorControlsController,
     required this.selectionNotifier,
   });
+
+  final bool readOnly;
 
   final Key? floatingToolbarKey;
   final CommonEditorOperations editorOps;
@@ -1064,6 +1118,7 @@ class DefaultAndroidEditorToolbar extends StatelessWidget {
       valueListenable: selectionNotifier,
       builder: (context, selection, child) {
         return AndroidTextEditingFloatingToolbar(
+          readOnly: readOnly,
           floatingToolbarKey: floatingToolbarKey,
           onCopyPressed: selection == null || !selection.isCollapsed //
               ? _copy

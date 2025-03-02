@@ -1,5 +1,8 @@
+import "dart:math";
+
 import "package:flutter/rendering.dart";
 import "package:flutter/widgets.dart";
+import "package:super_editor/super_editor.dart";
 
 /// Component that allows mixing RenderSliver child with other RenderBox
 /// children. The RenderSliver child will be laid out first, and then the
@@ -13,14 +16,16 @@ class SliverHybridStack extends MultiChildRenderObjectWidget {
   const SliverHybridStack({
     super.key,
     this.fillViewport = false,
+    this.mainScrollController,
     super.children,
   });
 
   final bool fillViewport;
+  final ScrollController? mainScrollController;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return _RenderSliverHybridStack(fillViewport: fillViewport);
+    return _RenderSliverHybridStack(fillViewport: fillViewport, mainScrollController: mainScrollController);
   }
 
   @override
@@ -33,13 +38,16 @@ class _ChildParentData extends SliverLogicalParentData with ContainerParentDataM
 
 class _RenderSliverHybridStack extends RenderSliver
     with ContainerRenderObjectMixin<RenderObject, ContainerParentDataMixin<RenderObject>>, RenderSliverHelpers {
-  _RenderSliverHybridStack({required this.fillViewport});
+  _RenderSliverHybridStack({required this.fillViewport, required this.mainScrollController});
 
   bool fillViewport;
+
+  final ScrollController? mainScrollController;
 
   @override
   void performLayout() {
     RenderSliver? sliver;
+
     var child = firstChild;
     while (child != null) {
       if (child is RenderSliver) {
@@ -173,6 +181,7 @@ class _RenderSliverHybridStack extends RenderSliver
   @override
   void applyPaintTransform(covariant RenderObject child, Matrix4 transform) {
     final childParentData = child.parentData! as SliverLogicalParentData;
+    // transform.translate(0.0, childParentData.layoutOffset! + (mainScrollController?.offset ?? 0.0));
     transform.translate(0.0, childParentData.layoutOffset!);
   }
 

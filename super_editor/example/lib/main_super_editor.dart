@@ -63,7 +63,7 @@ class _DemoState extends State<_Demo> {
   @override
   void initState() {
     super.initState();
-    _document = createInitialDocument();
+    _document = createInitialDocument('');
     _composer = MutableDocumentComposer();
     _docEditor = createDefaultDocumentEditor(document: _document, composer: _composer, isHistoryEnabled: true);
   }

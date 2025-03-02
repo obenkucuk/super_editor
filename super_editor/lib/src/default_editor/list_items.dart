@@ -174,6 +174,7 @@ class ListItemComponentBuilder implements ComponentBuilder {
           textAlignment: textAlignment,
           textStyleBuilder: noStyleBuilder,
           selectionColor: const Color(0x00000000),
+          sectionSelectionColor: const Color(0x00000000),
         ),
       ListItemType.ordered => OrderedListItemComponentViewModel(
           nodeId: node.id,
@@ -184,6 +185,7 @@ class ListItemComponentBuilder implements ComponentBuilder {
           textAlignment: textAlignment,
           textStyleBuilder: noStyleBuilder,
           selectionColor: const Color(0x00000000),
+          sectionSelectionColor: const Color(0x00000000),
         ),
     };
   }
@@ -199,12 +201,12 @@ class ListItemComponentBuilder implements ComponentBuilder {
     if (componentViewModel is UnorderedListItemComponentViewModel) {
       return UnorderedListItemComponent(
         componentKey: componentContext.componentKey,
-        nodeId: componentViewModel.nodeId,
         text: componentViewModel.text,
         styleBuilder: componentViewModel.textStyleBuilder,
         indent: componentViewModel.indent,
         dotStyle: componentViewModel.dotStyle,
         textSelection: componentViewModel.selection,
+        sectionSelection: componentViewModel.sectionSelection,
         textDirection: componentViewModel.textDirection,
         textAlignment: componentViewModel.textAlignment,
         selectionColor: componentViewModel.selectionColor,
@@ -214,7 +216,6 @@ class ListItemComponentBuilder implements ComponentBuilder {
     } else if (componentViewModel is OrderedListItemComponentViewModel) {
       return OrderedListItemComponent(
         componentKey: componentContext.componentKey,
-        nodeId: componentViewModel.nodeId,
         indent: componentViewModel.indent,
         listIndex: componentViewModel.ordinalValue!,
         text: componentViewModel.text,
@@ -223,6 +224,7 @@ class ListItemComponentBuilder implements ComponentBuilder {
         styleBuilder: componentViewModel.textStyleBuilder,
         numeralStyle: componentViewModel.numeralStyle,
         textSelection: componentViewModel.selection,
+        sectionSelection: componentViewModel.sectionSelection,
         selectionColor: componentViewModel.selectionColor,
         highlightWhenEmpty: componentViewModel.highlightWhenEmpty,
         underlines: componentViewModel.createUnderlines(),
@@ -247,7 +249,9 @@ abstract class ListItemComponentViewModel extends SingleColumnLayoutComponentVie
     this.textDirection = TextDirection.ltr,
     this.textAlignment = TextAlign.left,
     this.selection,
+    this.sectionSelection,
     required this.selectionColor,
+    required this.sectionSelectionColor,
     this.highlightWhenEmpty = false,
     TextRange? composingRegion,
     bool showComposingRegionUnderline = false,
@@ -281,7 +285,11 @@ abstract class ListItemComponentViewModel extends SingleColumnLayoutComponentVie
   @override
   TextSelection? selection;
   @override
+  TextSelection? sectionSelection;
+  @override
   Color selectionColor;
+  @override
+  Color sectionSelectionColor;
   @override
   bool highlightWhenEmpty;
 
@@ -339,6 +347,7 @@ class UnorderedListItemComponentViewModel extends ListItemComponentViewModel {
     super.textAlignment = TextAlign.left,
     super.selection,
     required super.selectionColor,
+    required super.sectionSelectionColor,
     super.highlightWhenEmpty = false,
     super.composingRegion,
     super.showComposingRegionUnderline = false,
@@ -374,6 +383,7 @@ class UnorderedListItemComponentViewModel extends ListItemComponentViewModel {
       textAlignment: textAlignment,
       selection: selection,
       selectionColor: selectionColor,
+      sectionSelectionColor: sectionSelectionColor,
       composingRegion: composingRegion,
       showComposingRegionUnderline: showComposingRegionUnderline,
       spellingErrorUnderlineStyle: spellingErrorUnderlineStyle,
@@ -410,6 +420,7 @@ class OrderedListItemComponentViewModel extends ListItemComponentViewModel {
     super.textAlignment = TextAlign.left,
     super.selection,
     required super.selectionColor,
+    required super.sectionSelectionColor,
     super.highlightWhenEmpty = false,
     super.composingRegion,
     super.showComposingRegionUnderline = false,
@@ -443,6 +454,7 @@ class OrderedListItemComponentViewModel extends ListItemComponentViewModel {
       textAlignment: textAlignment,
       selection: selection,
       selectionColor: selectionColor,
+      sectionSelectionColor: sectionSelectionColor,
       composingRegion: composingRegion,
       showComposingRegionUnderline: showComposingRegionUnderline,
       spellingErrorUnderlineStyle: spellingErrorUnderlineStyle,
@@ -510,7 +522,6 @@ class UnorderedListItemComponent extends StatefulWidget {
   const UnorderedListItemComponent({
     Key? key,
     required this.componentKey,
-    this.nodeId,
     required this.text,
     this.textDirection = TextDirection.ltr,
     this.textAlignment = TextAlign.left,
@@ -521,7 +532,9 @@ class UnorderedListItemComponent extends StatefulWidget {
     this.indent = 0,
     this.indentCalculator = defaultListItemIndentCalculator,
     this.textSelection,
+    this.sectionSelection,
     this.selectionColor = Colors.lightBlueAccent,
+    this.sectionSelectionColor = Colors.amber,
     this.showCaret = false,
     this.caretColor = Colors.black,
     this.highlightWhenEmpty = false,
@@ -529,7 +542,6 @@ class UnorderedListItemComponent extends StatefulWidget {
     this.showDebugPaint = false,
   }) : super(key: key);
 
-  final String? nodeId;
   final GlobalKey componentKey;
   final AttributedText text;
   final TextDirection textDirection;
@@ -541,7 +553,9 @@ class UnorderedListItemComponent extends StatefulWidget {
   final int indent;
   final double Function(TextStyle, int indent) indentCalculator;
   final TextSelection? textSelection;
+  final TextSelection? sectionSelection;
   final Color selectionColor;
+  final Color sectionSelectionColor;
   final bool showCaret;
   final Color caretColor;
   final bool highlightWhenEmpty;
@@ -600,15 +614,16 @@ class _UnorderedListItemComponentState extends State<UnorderedListItemComponent>
             Expanded(
               child: TextComponent(
                 key: _innerTextComponentKey,
-                nodeId: widget.nodeId,
                 text: widget.text,
                 textDirection: widget.textDirection,
                 textAlign: widget.textAlignment,
                 textStyleBuilder: widget.styleBuilder,
                 inlineWidgetBuilders: widget.inlineWidgetBuilders,
                 textSelection: widget.textSelection,
+                sectionSelection: widget.sectionSelection,
                 textScaler: textScaler,
                 selectionColor: widget.selectionColor,
+                sectionSelectionColor: widget.sectionSelectionColor,
                 highlightWhenEmpty: widget.highlightWhenEmpty,
                 underlines: widget.underlines,
                 showDebugPaint: widget.showDebugPaint,
@@ -687,7 +702,6 @@ class OrderedListItemComponent extends StatefulWidget {
   const OrderedListItemComponent({
     Key? key,
     required this.componentKey,
-    this.nodeId,
     required this.listIndex,
     required this.text,
     this.textDirection = TextDirection.ltr,
@@ -699,7 +713,9 @@ class OrderedListItemComponent extends StatefulWidget {
     this.indent = 0,
     this.indentCalculator = defaultListItemIndentCalculator,
     this.textSelection,
+    this.sectionSelection,
     this.selectionColor = Colors.lightBlueAccent,
+    this.sectionSelectionColor = Colors.amber,
     this.showCaret = false,
     this.caretColor = Colors.black,
     this.highlightWhenEmpty = false,
@@ -707,7 +723,6 @@ class OrderedListItemComponent extends StatefulWidget {
     this.showDebugPaint = false,
   }) : super(key: key);
 
-  final String? nodeId;
   final GlobalKey componentKey;
   final int listIndex;
   final AttributedText text;
@@ -720,7 +735,9 @@ class OrderedListItemComponent extends StatefulWidget {
   final int indent;
   final TextBlockIndentCalculator indentCalculator;
   final TextSelection? textSelection;
+  final TextSelection? sectionSelection;
   final Color selectionColor;
+  final Color sectionSelectionColor;
   final bool showCaret;
   final Color caretColor;
   final bool highlightWhenEmpty;
@@ -780,14 +797,15 @@ class _OrderedListItemComponentState extends State<OrderedListItemComponent> {
             Expanded(
               child: TextComponent(
                 key: _innerTextComponentKey,
-                nodeId: widget.nodeId,
                 text: widget.text,
                 textDirection: widget.textDirection,
                 textAlign: widget.textAlignment,
                 textStyleBuilder: widget.styleBuilder,
                 inlineWidgetBuilders: widget.inlineWidgetBuilders,
                 textSelection: widget.textSelection,
+                sectionSelection: widget.sectionSelection,
                 textScaler: textScaler,
+                sectionSelectionColor: widget.sectionSelectionColor,
                 selectionColor: widget.selectionColor,
                 highlightWhenEmpty: widget.highlightWhenEmpty,
                 underlines: widget.underlines,

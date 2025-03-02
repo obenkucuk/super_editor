@@ -31,6 +31,7 @@ import 'package:super_editor/src/infrastructure/platforms/mobile_documents.dart'
 import 'package:super_editor/src/infrastructure/signal_notifier.dart';
 import 'package:super_editor/src/infrastructure/sliver_hybrid_stack.dart';
 import 'package:super_editor/src/infrastructure/touch_controls.dart';
+import 'package:super_editor/super_editor.dart';
 
 import '../infrastructure/document_gestures.dart';
 import '../infrastructure/document_gestures_interaction_overrides.dart';
@@ -355,7 +356,10 @@ class SuperEditorAndroidToolbarFocalPointDocumentLayerBuilder implements SuperEd
     // constraint is >= 3.6.0, just ignore `unused_element_parameter`.
     // ignore: unused_element, unused_element_parameter
     this.showDebugLeaderBounds = false,
+    this.readOnly = false,
   });
+
+  final bool readOnly;
 
   /// Whether to paint colorful bounds around the leader widget.
   final bool showDebugLeaderBounds;
@@ -423,9 +427,11 @@ class SuperEditorAndroidHandlesDocumentLayerBuilder implements SuperEditorLayerB
 class AndroidDocumentTouchInteractor extends StatefulWidget {
   const AndroidDocumentTouchInteractor({
     Key? key,
+    this.readOnly = false,
     required this.focusNode,
     required this.editor,
     required this.document,
+    required this.superEditorContext,
     required this.getDocumentLayout,
     required this.selection,
     this.openKeyboardWhenTappingExistingSelection = true,
@@ -439,8 +445,9 @@ class AndroidDocumentTouchInteractor extends StatefulWidget {
     required this.child,
   }) : super(key: key);
 
+  final bool readOnly;
   final FocusNode focusNode;
-
+  final SuperEditorContext superEditorContext;
   final Editor editor;
   final Document document;
   final DocumentLayout Function() getDocumentLayout;
@@ -740,7 +747,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
       ..hideMagnifier()
       ..showToolbar();
 
-    widget.focusNode.requestFocus();
+    if (!widget.readOnly) widget.focusNode.requestFocus();
   }
 
   void _onTapUp(TapUpDetails details) {
@@ -802,7 +809,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
       } else {
         // Place the document selection at the location where the
         // user tapped.
-        _selectPosition(docPosition);
+        _selectPosition(docPosition, isOnTap: true);
       }
     } else {
       _clearSelection();
@@ -818,7 +825,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
       widget.openSoftwareKeyboard();
     }
 
-    widget.focusNode.requestFocus();
+    if (!widget.readOnly) widget.focusNode.requestFocus();
   }
 
   void _onDoubleTapDown(TapDownDetails details) {
@@ -875,7 +882,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
 
     _showAndHideEditingControlsAfterTapSelection(didTapOnExistingSelection: false);
 
-    widget.focusNode.requestFocus();
+    if (!widget.readOnly) widget.focusNode.requestFocus();
   }
 
   bool _selectBlockAt(DocumentPosition position) {
@@ -883,23 +890,25 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
       return false;
     }
 
-    widget.editor.execute([
-      ChangeSelectionRequest(
-        DocumentSelection(
-          base: DocumentPosition(
-            nodeId: position.nodeId,
-            nodePosition: const UpstreamDownstreamNodePosition.upstream(),
+    if (!widget.readOnly) {
+      widget.editor.execute([
+        ChangeSelectionRequest(
+          DocumentSelection(
+            base: DocumentPosition(
+              nodeId: position.nodeId,
+              nodePosition: const UpstreamDownstreamNodePosition.upstream(),
+            ),
+            extent: DocumentPosition(
+              nodeId: position.nodeId,
+              nodePosition: const UpstreamDownstreamNodePosition.downstream(),
+            ),
           ),
-          extent: DocumentPosition(
-            nodeId: position.nodeId,
-            nodePosition: const UpstreamDownstreamNodePosition.downstream(),
-          ),
+          SelectionChangeType.placeCaret,
+          SelectionReason.userInteraction,
         ),
-        SelectionChangeType.placeCaret,
-        SelectionReason.userInteraction,
-      ),
-      const ClearComposingRegionRequest(),
-    ]);
+        const ClearComposingRegionRequest(),
+      ]);
+    }
 
     return true;
   }
@@ -952,7 +961,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
 
     _showAndHideEditingControlsAfterTapSelection(didTapOnExistingSelection: false);
 
-    widget.focusNode.requestFocus();
+    if (!widget.readOnly) widget.focusNode.requestFocus();
   }
 
   void _showAndHideEditingControlsAfterTapSelection({
@@ -1100,19 +1109,17 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
 
   void _onLongPressPanUpdate(DragUpdateDetails details) {
     final fingerDragDelta = _globalDragOffset! - _globalStartDragOffset!;
-    final scrollDelta = _dragStartScrollOffset! - scrollPosition.pixels;
     final fingerDocumentOffset = _docLayout.getDocumentOffsetFromAncestorOffset(details.globalPosition);
     final fingerDocumentPosition = _docLayout.getDocumentPositionNearestToOffset(
-      _startDragPositionOffset! + fingerDragDelta - Offset(0, scrollDelta),
+      _startDragPositionOffset! + fingerDragDelta,
     );
     _longPressStrategy!.onLongPressDragUpdate(fingerDocumentOffset, fingerDocumentPosition);
   }
 
   void _onCaretDragPanUpdate(DragUpdateDetails details) {
     final fingerDragDelta = _globalDragOffset! - _globalStartDragOffset!;
-    final scrollDelta = _dragStartScrollOffset! - scrollPosition.pixels;
     final fingerDocumentPosition = _docLayout.getDocumentPositionNearestToOffset(
-      _startDragPositionOffset! + fingerDragDelta - Offset(0, scrollDelta),
+      _startDragPositionOffset! + fingerDragDelta,
     )!;
     if (fingerDocumentPosition != widget.selection.value!.extent) {
       HapticFeedback.lightImpact();
@@ -1215,6 +1222,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
         ),
         const ClearComposingRegionRequest(),
       ]);
+
       return true;
     } else {
       return false;
@@ -1235,24 +1243,84 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
         ),
         const ClearComposingRegionRequest(),
       ]);
+
       return true;
     } else {
       return false;
     }
   }
 
-  void _selectPosition(DocumentPosition position) {
-    editorGesturesLog.fine("Setting document selection to $position");
-    widget.editor.execute([
-      ChangeSelectionRequest(
-        DocumentSelection.collapsed(
-          position: position,
-        ),
-        SelectionChangeType.placeCaret,
-        SelectionReason.userInteraction,
+  DocumentSelection? _getSectionFromPosition(TextPosition position, TextNode textNode) {
+    int sentenceIndex = 0;
+    final sentences = widget.superEditorContext.sectionSeparatorBuilder!(textNode.text.toPlainText());
+    final sentenceLengths = sentences.map((e) => e.text.length).toList();
+    int currentLength = 0;
+
+    for (var i = 0; i < sentenceLengths.length; i++) {
+      currentLength += sentenceLengths[i];
+
+      if (currentLength > position.offset) {
+        sentenceIndex = i;
+
+        break;
+      }
+    }
+
+    final startPosition = sentenceIndex == 0
+        ? 0
+        : (sentenceLengths.take(sentenceIndex).toList().reduce((value, element) => value + element));
+    final endPosition = startPosition + sentences[sentenceIndex].text.trim().length;
+
+    return DocumentSelection(
+      base: DocumentPosition(
+        nodeId: textNode.id,
+        nodePosition: TextNodePosition(offset: startPosition),
       ),
-      const ClearComposingRegionRequest(),
-    ]);
+      extent: DocumentPosition(
+        nodeId: textNode.id,
+        nodePosition: TextNodePosition(offset: endPosition),
+      ),
+    );
+  }
+
+  void _selectPosition(DocumentPosition position, {bool isOnTap = false}) {
+    if (isOnTap &&
+        widget.superEditorContext.sectionSelection != null &&
+        widget.superEditorContext.sectionSeparatorBuilder != null &&
+        position.nodePosition is TextPosition) {
+      final textPosition = position.nodePosition as TextPosition;
+
+      final node = widget.document.getNodeById(position.nodeId);
+      if (node is TextNode) {
+        final selection =
+            _getSectionFromPosition(textPosition, widget.document.getNodeById(position.nodeId) as TextNode);
+
+        widget.superEditorContext.sectionSelection!.value = selection;
+      }
+
+      // widget.superEditorContext.sectionSelection?.value = DocumentSelection(
+      //     base: DocumentPosition(nodeId: position.nodeId, nodePosition: position.nodePosition),
+      //     extent: DocumentPosition(nodeId: position.nodeId, nodePosition: position.nodePosition));
+    }
+
+    editorGesturesLog.fine("Setting document selection to $position");
+    if (!widget.readOnly) {
+      widget.editor.execute([
+        ChangeSelectionRequest(
+          DocumentSelection.collapsed(
+            position: position,
+          ),
+          SelectionChangeType.placeCaret,
+          SelectionReason.userInteraction,
+        ),
+        const ClearComposingRegionRequest(),
+      ]);
+    } else {
+      widget.editor.execute([
+        const ClearSelectionRequest(),
+        const ClearComposingRegionRequest(),
+      ]);
+    }
   }
 
   void _select(DocumentSelection newSelection) {
@@ -1273,6 +1341,8 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
       const ClearComposingRegionRequest(),
     ]);
   }
+
+  Offset? cachedPanOffset;
 
   @override
   Widget build(BuildContext context) {
@@ -1320,7 +1390,13 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
                   }
                   ..dragStartBehavior = DragStartBehavior.down
                   ..onStart = _onPanStart
-                  ..onUpdate = _onPanUpdate
+                  ..onUpdate = (details) {
+                    if (_offsetsReachDebounce(details.localPosition, cachedPanOffset, debounce: 16)) {
+                      cachedPanOffset = details.localPosition;
+
+                      _onPanUpdate(details);
+                    }
+                  }
                   ..onEnd = _onPanEnd
                   ..onCancel = _onPanCancel
                   ..gestureSettings = gestureSettings;
@@ -1909,14 +1985,17 @@ class SuperEditorAndroidControlsOverlayManagerState extends State<SuperEditorAnd
       builder: (context, shouldShow, child) {
         return shouldShow ? child! : const SizedBox();
       },
-      child: Follower.withAligner(
+      child: FollowerFadeOutBeyondBoundary(
         link: _controlsController!.toolbarFocalPoint,
-        aligner: _toolbarAligner,
-        boundary: ScreenFollowerBoundary(
-          screenSize: MediaQuery.sizeOf(context),
-          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        child: Follower.withAligner(
+          link: _controlsController!.toolbarFocalPoint,
+          aligner: _toolbarAligner,
+          boundary: WidgetFollowerBoundary(
+            // boundaryKey: _boundsKey,
+            devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          ),
+          child: _toolbarBuilder(context, DocumentKeys.mobileToolbar, _controlsController!.toolbarFocalPoint),
         ),
-        child: _toolbarBuilder(context, DocumentKeys.mobileToolbar, _controlsController!.toolbarFocalPoint),
       ),
     );
   }
@@ -1935,7 +2014,8 @@ class SuperEditorAndroidControlsOverlayManagerState extends State<SuperEditorAnd
           return const SizedBox();
         }
 
-        return Positioned(
+        return AnimatedPositioned(
+          duration: const Duration(milliseconds: 80),
           left: focalPoint.dx,
           top: focalPoint.dy,
           width: 1,
@@ -2026,4 +2106,18 @@ enum SelectionHandleType {
 enum SelectionBound {
   base,
   extent,
+}
+
+bool _offsetsReachDebounce(Offset? a, Offset? b, {double debounce = 9}) {
+  // return true;
+  // if ((a.dx - b.dx).abs() > debounce || (a.dy - b.dy).abs() > debounce) {
+  //   return true;
+  // }
+
+  // return false;
+
+  if (a == null || b == null) {
+    return true;
+  }
+  return (a - b).distanceSquared > debounce;
 }

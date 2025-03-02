@@ -5,6 +5,7 @@ import 'package:super_editor/src/core/document.dart';
 import 'package:super_editor/src/core/document_layout.dart';
 import 'package:super_editor/src/core/styles.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
+import 'package:super_editor/super_editor.dart';
 
 /// Information that is provided to a [ComponentBuilder] to
 /// construct an appropriate [DocumentComponent] widget.
@@ -62,6 +63,15 @@ class SingleColumnLayoutPresenter {
     _listeners.clear();
     _document.removeListener(_onDocumentChange);
     _disassemblePipeline();
+  }
+
+  ValueListenable<DocumentSelection?>? get selection {
+    for (final phase in _pipeline) {
+      if (phase is SingleColumnLayoutSelectionStyler) {
+        return phase.selection;
+      }
+    }
+    return null;
   }
 
   final Document _document;

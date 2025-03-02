@@ -3,15 +3,33 @@
 import 'dart:collection';
 import 'dart:math';
 
+import 'package:attributed_text/attributed_text.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide SelectableText;
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:super_editor/src/core/document.dart';
+import 'package:super_editor/src/core/document_composer.dart';
+import 'package:super_editor/src/core/document_layout.dart';
+import 'package:super_editor/src/core/document_selection.dart';
+import 'package:super_editor/src/core/edit_context.dart';
+import 'package:super_editor/src/core/editor.dart';
+import 'package:super_editor/src/core/styles.dart';
+import 'package:super_editor/src/default_editor/attributions.dart';
+import 'package:super_editor/src/infrastructure/_logging.dart';
+import 'package:super_editor/src/infrastructure/attributed_text_styles.dart';
+import 'package:super_editor/src/infrastructure/composable_text.dart';
 import 'package:super_editor/src/infrastructure/flutter/geometry.dart';
 import 'package:super_editor/src/infrastructure/key_event_extensions.dart';
-import 'package:super_editor/super_editor.dart';
+import 'package:super_editor/src/infrastructure/keyboard.dart';
+import 'package:super_editor/src/infrastructure/strings.dart';
 import 'package:super_text_layout/super_text_layout.dart';
+
+import 'layout_single_column/layout_single_column.dart';
+import 'list_items.dart';
+import 'multi_node_editing.dart';
+import 'paragraph.dart';
+import 'selection_upstream_downstream.dart';
+import 'text_tools.dart';
 
 @immutable
 class TextNode extends DocumentNode {
@@ -501,8 +519,14 @@ mixin TextComponentViewModel on SingleColumnLayoutComponentViewModel {
   TextSelection? get selection;
   set selection(TextSelection? selection);
 
+  TextSelection? get sectionSelection;
+  set sectionSelection(TextSelection? selection);
+
   Color get selectionColor;
   set selectionColor(Color color);
+
+  Color get sectionSelectionColor;
+  set sectionSelectionColor(Color color);
 
   bool get highlightWhenEmpty;
   set highlightWhenEmpty(bool highlight);
@@ -582,6 +606,7 @@ class TextWithHintComponent extends StatefulWidget {
     required this.textStyleBuilder,
     this.metadata = const {},
     this.textSelection,
+    this.sectionSelection,
     this.selectionColor = Colors.lightBlueAccent,
     this.highlightWhenEmpty = false,
     this.underlines = const [],
@@ -596,6 +621,7 @@ class TextWithHintComponent extends StatefulWidget {
   final AttributionStyleBuilder textStyleBuilder;
   final Map<String, dynamic> metadata;
   final TextSelection? textSelection;
+  final TextSelection? sectionSelection;
   final Color selectionColor;
   final bool highlightWhenEmpty;
   final List<Underlines> underlines;
@@ -646,6 +672,7 @@ class _TextWithHintComponentState extends State<TextWithHintComponent>
           textStyleBuilder: widget.textStyleBuilder,
           metadata: widget.metadata,
           textSelection: widget.textSelection,
+          sectionSelection: widget.sectionSelection,
           selectionColor: widget.selectionColor,
           highlightWhenEmpty: widget.highlightWhenEmpty,
           underlines: widget.underlines,
@@ -663,21 +690,20 @@ class TextComponent extends StatefulWidget {
   const TextComponent({
     Key? key,
     required this.text,
-    this.nodeId,
     this.textAlign,
     this.textDirection,
     this.textScaler,
     required this.textStyleBuilder,
     this.inlineWidgetBuilders = const [],
     this.metadata = const {},
+    this.sectionSelection,
     this.textSelection,
     this.selectionColor = Colors.lightBlueAccent,
+    this.sectionSelectionColor = Colors.amber,
     this.highlightWhenEmpty = false,
     this.underlines = const [],
     this.showDebugPaint = false,
   }) : super(key: key);
-
-  final String? nodeId;
 
   final AttributedText text;
 
@@ -700,9 +726,13 @@ class TextComponent extends StatefulWidget {
 
   final Map<String, dynamic> metadata;
 
+  final TextSelection? sectionSelection;
+
   final TextSelection? textSelection;
 
   final Color selectionColor;
+
+  final Color sectionSelectionColor;
 
   final bool highlightWhenEmpty;
 
@@ -721,29 +751,6 @@ class TextComponent extends StatefulWidget {
 
 class TextComponentState extends State<TextComponent> with DocumentComponent implements TextComposable {
   final _textKey = GlobalKey<ProseTextState>();
-
-  late final List<TapGestureRecognizer> sentenceGestureRecognizers;
-
-  @override
-  void initState() {
-    super.initState();
-
-    sentenceGestureRecognizers = widget.text.sectences
-        .map((_) => TapGestureRecognizer()
-          ..onTap = () {
-            SuperReader.defaultSentenceTap?.call(widget.nodeId, _.text, _.index);
-          })
-        .toList();
-  }
-
-  @override
-  dispose() {
-    widget.text.dispose();
-    for (final recognizer in sentenceGestureRecognizers) {
-      recognizer.dispose();
-    }
-    super.dispose();
-  }
 
   @visibleForTesting
   ProseTextLayout get textLayout => _textKey.currentState!.textLayout;
@@ -1151,32 +1158,13 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
   Widget build(BuildContext context) {
     editorLayoutLog.finer('Building a TextComponent with key: ${widget.key}');
 
-// TODO: bu ignore pointer edit için aktif, seçim için pasif olmalı
-
-    final notifier = SentenceSelection.sentenceSelections[widget.nodeId];
-
-    if (notifier == null) {
-      return getChild(context, null);
-    } else {
-      return ValueListenableBuilder(
-          valueListenable: notifier,
-          builder: (context, notifier, child) {
-            return getChild(context, notifier);
-          });
-    }
-  }
-
-  IgnorePointer getChild(BuildContext context, SentenceSelection? sentence) {
     return IgnorePointer(
-      ignoring: false,
       child: SuperText(
         key: _textKey,
         richText: widget.text.computeInlineSpan(
           context,
           _textStyleWithBlockType,
           widget.inlineWidgetBuilders,
-          nodeId: widget.nodeId,
-          gestureRecognizers: sentenceGestureRecognizers,
         ),
         textAlign: widget.textAlign ?? TextAlign.left,
         textDirection: widget.textDirection ?? TextDirection.ltr,
@@ -1184,29 +1172,6 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
         layerBeneathBuilder: (context, textLayout) {
           return Stack(
             children: [
-              TextSentenceSelectionHighlight(
-                      textLayout: textLayout,
-                      style: SelectionHighlightStyle(
-                        color: Colors.amber,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      selection: sentence?.getOffsetForSentence)
-                  .animate(
-                    key: ValueKey(sentence),
-                  )
-                  .fadeIn(),
-              if (sentence != null)
-                TextSentenceSelectionHighlight(
-                        textLayout: textLayout,
-                        style: SelectionHighlightStyle(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        selection: sentence.wordSelection)
-                    .animate(
-                      key: ValueKey(sentence.wordSelection),
-                    )
-                    .fadeIn(),
               // Selection highlight beneath the text.
               if (widget.text.length > 0)
                 TextLayoutSelectionHighlight(
@@ -1232,6 +1197,15 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
                       TextLayoutUnderline(range: range),
                   ],
                 ),
+
+              if (widget.text.length > 0)
+                TextLayoutSectionSelectionHighlight(
+                  textLayout: textLayout,
+                  style: SelectionHighlightStyle(
+                    color: widget.sectionSelectionColor,
+                  ),
+                  selection: widget.sectionSelection ?? const TextSelection.collapsed(offset: -1),
+                )
             ],
           );
         },

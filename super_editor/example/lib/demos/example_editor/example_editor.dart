@@ -1,11 +1,66 @@
+import 'dart:developer';
+
 import 'package:example/logging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:super_editor/super_editor.dart';
 import 'package:super_editor_markdown/super_editor_markdown.dart';
+import 'package:collection/collection.dart' show ListExtensions;
 
 import '_example_document.dart';
 import '_toolbar.dart';
+
+List<({int index, String text})> Function(String) sectionSeparatorBuilder = (text) {
+  List<String> splitSentences(String text) {
+    final regex = RegExp(r'(?<!\b(?:Mr|Ms|Dr|Jr|Sr|St|Prof|Ph\.D|U\.S)\.)(?<!\b[A-Z]\.)(?<=\.|\?|!)\s+');
+    return text.split(regex).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+  }
+
+  List<String> mergeShortSentences(List<String> sentences, int minChars) {
+    List<String> result = [];
+    StringBuffer buffer = StringBuffer();
+    int charCount = 0;
+
+    for (var sentence in sentences) {
+      int currentCharCount = sentence.length; // Harf sayısını hesapla
+
+      if (charCount + currentCharCount < minChars) {
+        // 100 harften kısa ise eklemeye devam et
+        if (buffer.isNotEmpty) {
+          buffer.write(" ");
+        }
+        buffer.write(sentence);
+        charCount += currentCharCount + 1; // 1 ekstra boşluk ekleniyor
+      } else {
+        // 100+ harfe ulaştıysa burada kes
+        buffer.write(" $sentence");
+        result.add(buffer.toString().trim());
+        buffer.clear();
+        charCount = 0;
+      }
+    }
+
+    if (buffer.isNotEmpty) {
+      // Eğer en sona kalan cümle 100 harften kısa ise, öncekiyle birleştir
+      if (result.isNotEmpty && buffer.length < minChars) {
+        result[result.length - 1] += " ${buffer.toString().trim()}";
+      } else {
+        result.add(buffer.toString().trim());
+      }
+    }
+
+    return result;
+  }
+
+  List<String> sentences = splitSentences(text);
+  List<String> mergedSentences = mergeShortSentences(sentences, 100);
+
+  for (final sentence in mergedSentences) {
+    print('Senteces Length: ${sentence.length}');
+  }
+
+  return mergedSentences.mapIndexed((index, section) => (index: index, text: section)).toList();
+};
 
 /// Example of a rich text editor.
 ///
@@ -50,23 +105,41 @@ class _ExampleEditorState extends State<ExampleEditor> {
 
   late final SuperEditorIosControlsController _iosControlsController;
 
+  late final ValueNotifier<DocumentSelection?> sectionSelection;
+
+  bool initialized = false;
   @override
   void initState() {
     super.initState();
-    _doc = createInitialDocument()..addListener(_onDocumentChange);
-    _composer = MutableDocumentComposer();
-    _composer.selectionNotifier.addListener(_hideOrShowToolbar);
-    _docEditor = createDefaultDocumentEditor(document: _doc, composer: _composer, isHistoryEnabled: true);
-    _docOps = CommonEditorOperations(
-      editor: _docEditor,
-      document: _doc,
-      composer: _composer,
-      documentLayoutResolver: () => _docLayoutKey.currentState as DocumentLayout,
-    );
-    _editorFocusNode = FocusNode();
-    _scrollController = ScrollController()..addListener(_hideOrShowToolbar);
 
-    _iosControlsController = SuperEditorIosControlsController();
+    () async {
+      _doc = await compute(createInitialDocumentCompute, '');
+      _doc.addListener(_onDocumentChange);
+
+      // _doc = createInitialDocument()..addListener(_onDocumentChange);
+      _composer = MutableDocumentComposer();
+      _composer.selectionNotifier.addListener(_hideOrShowToolbar);
+      _docEditor = createDefaultDocumentEditor(document: _doc, composer: _composer, isHistoryEnabled: true);
+      _docOps = CommonEditorOperations(
+        editor: _docEditor,
+        document: _doc,
+        composer: _composer,
+        documentLayoutResolver: () => _docLayoutKey.currentState as DocumentLayout,
+      );
+      _editorFocusNode = FocusNode();
+      _scrollController = ScrollController()..addListener(_hideOrShowToolbar);
+
+      _iosControlsController = SuperEditorIosControlsController();
+
+      sectionSelection = ValueNotifier<DocumentSelection?>(null)
+        ..addListener(() {
+          print("sectionSelection changed to ${sectionSelection.value}");
+        });
+
+      setState(() {
+        initialized = true;
+      });
+    }();
   }
 
   @override
@@ -84,6 +157,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
   }
 
   void _hideOrShowToolbar() {
+    // print(_composer.selection);
     if (_gestureMode != DocumentGestureMode.mouse) {
       // We only add our own toolbar when using mouse. On mobile, a bar
       // is rendered for us.
@@ -150,11 +224,11 @@ class _ExampleEditorState extends State<ExampleEditor> {
     // TODO: switch this to use a Leader and Follower
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       final layout = _docLayoutKey.currentState as DocumentLayout;
-      final docBoundingBox = layout.getRectForSelection(_composer.selection!.base, _composer.selection!.extent)!;
-      final globalOffset = layout.getGlobalOffsetFromDocumentOffset(Offset.zero);
-      final overlayBoundingBox = docBoundingBox.shift(globalOffset);
+      // final docBoundingBox = layout.getRectForSelection(_composer.selection!.base, _composer.selection!.extent)!;
+      // final globalOffset = layout.getGlobalOffsetFromDocumentOffset(Offset.zero);
+      // final overlayBoundingBox = docBoundingBox.shift(globalOffset);
 
-      _textSelectionAnchor.value = overlayBoundingBox.topCenter;
+      // _textSelectionAnchor.value = overlayBoundingBox.topCenter;
     });
   }
 
@@ -275,53 +349,76 @@ class _ExampleEditorState extends State<ExampleEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: _brightness,
-      builder: (context, brightness, child) {
-        return Theme(
-          data: ThemeData(brightness: brightness),
-          child: child!,
-        );
-      },
-      child: Builder(
-        // This builder captures the new theme
-        builder: (themedContext) {
-          return OverlayPortal(
-            controller: _textFormatBarOverlayController,
-            overlayChildBuilder: _buildFloatingToolbar,
-            child: OverlayPortal(
-              controller: _imageFormatBarOverlayController,
-              overlayChildBuilder: _buildImageToolbar,
-              child: Stack(
-                children: [
-                  Column(
-                    children: [
-                      Expanded(
-                        child: _buildEditor(themedContext),
-                      ),
-                      if (_isMobile) //
-                        _buildMountedToolbar(),
-                    ],
-                  ),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: ListenableBuilder(
-                      listenable: _composer.selectionNotifier,
-                      builder: (context, child) {
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: _isMobile && _composer.selection != null ? 48 : 0),
-                          child: child,
-                        );
-                      },
-                      child: _buildCornerFabs(),
+    // return Scaffold(
+    //   appBar: AppBar(
+    //     title: const Text('Super Editor Example'),
+    //   ),
+    //   floatingActionButton: FloatingActionButton(
+    //     onPressed: () {
+    //       _doc.forEach((node) {
+    //         print(node.id);
+    //       });
+    //     },
+    //   ),
+    // );
+    if (!initialized) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+    return Column(
+      children: [
+        Expanded(
+          child: ValueListenableBuilder(
+            valueListenable: _brightness,
+            builder: (context, brightness, child) {
+              return Theme(
+                data: ThemeData(brightness: brightness),
+                child: child!,
+              );
+            },
+            child: Builder(
+              // This builder captures the new theme
+              builder: (themedContext) {
+                return OverlayPortal(
+                  controller: _textFormatBarOverlayController,
+                  overlayChildBuilder: _buildFloatingToolbar,
+                  child: OverlayPortal(
+                    controller: _imageFormatBarOverlayController,
+                    overlayChildBuilder: _buildImageToolbar,
+                    child: Stack(
+                      children: [
+                        Column(
+                          children: [
+                            Expanded(
+                              child: _buildEditor(themedContext),
+                            ),
+                            if (_isMobile) //
+                              _buildMountedToolbar(),
+                          ],
+                        ),
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: ListenableBuilder(
+                            listenable: _composer.selectionNotifier,
+                            builder: (context, child) {
+                              return Padding(
+                                padding: EdgeInsets.only(bottom: _isMobile && _composer.selection != null ? 48 : 0),
+                                child: child,
+                              );
+                            },
+                            child: _buildCornerFabs(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -346,14 +443,19 @@ class _ExampleEditorState extends State<ExampleEditor> {
       foregroundColor: _brightness.value == Brightness.light ? _lightBackground : _darkBackground,
       elevation: 5,
       onPressed: () {
-        setState(() {
-          _debugConfig = _debugConfig != null
-              ? null
-              : const SuperEditorDebugVisualsConfig(
-                  showFocus: true,
-                  showImeConnection: true,
-                );
-        });
+        final allSentencesMap = _doc.map((node) {
+          if (node is TextNode) {
+            final sentences = sectionSeparatorBuilder.call(node.text.toPlainText());
+
+            return sentences;
+          }
+        }).toList();
+        // final serialized = serializeDocumentToMarkdown(_doc);
+        // // log(serialized);
+
+        // final deserialized = deserializeMarkdownToDocument(serialized);
+
+        // _debugConfig = _debugConfig == null ? SuperEditorDebugVisualsConfig() : null;
       },
       child: const Icon(
         Icons.bug_report,
@@ -391,6 +493,9 @@ class _ExampleEditorState extends State<ExampleEditor> {
           child: SuperEditorIosControlsScope(
             controller: _iosControlsController,
             child: SuperEditor(
+              readOnly: true,
+              sectionSelection: sectionSelection,
+              sectionSeparatorBuilder: sectionSeparatorBuilder,
               editor: _docEditor,
               focusNode: _editorFocusNode,
               scrollController: _scrollController,
@@ -404,7 +509,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
                   SuperEditorIosToolbarFocalPointDocumentLayerBuilder(),
                 ],
                 if (defaultTargetPlatform == TargetPlatform.android) ...[
-                  SuperEditorAndroidToolbarFocalPointDocumentLayerBuilder(),
+                  SuperEditorAndroidToolbarFocalPointDocumentLayerBuilder(readOnly: true),
                   SuperEditorAndroidHandlesDocumentLayerBuilder(),
                 ],
               ],
@@ -413,6 +518,13 @@ class _ExampleEditorState extends State<ExampleEditor> {
                   ? defaultSelectionStyle
                   : SelectionStyles(
                       selectionColor: Colors.red.withValues(alpha: 0.3),
+                    ),
+              sectionSelectionStyles: isLight
+                  ? SelectionStyles(
+                      selectionColor: Colors.amber.withValues(alpha: 0.3),
+                    )
+                  : SelectionStyles(
+                      selectionColor: Colors.pink.withValues(alpha: 0.3),
                     ),
               stylesheet: defaultStylesheet.copyWith(
                 addRulesAfter: [

@@ -13,6 +13,7 @@ class IOSFollowingMagnifier extends StatefulWidget {
     required this.leaderLink,
     this.show = true,
     this.offsetFromFocalPoint = Offset.zero,
+    this.mainScrollController,
     this.handleColor,
   }) : magnifierBuilder = _roundedRectangleMagnifierBuilder;
 
@@ -21,6 +22,7 @@ class IOSFollowingMagnifier extends StatefulWidget {
     this.magnifierKey,
     required this.leaderLink,
     this.show = true,
+    this.mainScrollController,
     this.offsetFromFocalPoint = Offset.zero,
     this.handleColor,
   }) : magnifierBuilder = _circleMagnifierBuilder;
@@ -30,6 +32,7 @@ class IOSFollowingMagnifier extends StatefulWidget {
     this.magnifierKey,
     required this.leaderLink,
     this.show = true,
+    this.mainScrollController,
     this.offsetFromFocalPoint = Offset.zero,
     this.handleColor,
     required this.magnifierBuilder,
@@ -44,6 +47,8 @@ class IOSFollowingMagnifier extends StatefulWidget {
 
   final Color? handleColor;
   final MagnifierBuilder magnifierBuilder;
+
+  final ScrollController? mainScrollController;
 
   @override
   State<IOSFollowingMagnifier> createState() => _IOSFollowingMagnifierState();

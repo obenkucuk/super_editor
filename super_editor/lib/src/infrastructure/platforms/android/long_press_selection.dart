@@ -396,8 +396,9 @@ class AndroidDocumentLongPressSelectionStrategy {
         nodePosition: TextNodePosition(offset: _longPressMostRecentUpstreamWordBoundary!),
       );
       final upstreamSelectionX = _docLayout
-          .getRectForSelection(longPressMostRecentUpstreamWordBoundaryPosition, _longPressInitialSelection!.start)!
-          .left;
+              .getRectForSelection(longPressMostRecentUpstreamWordBoundaryPosition, _longPressInitialSelection!.start)
+              ?.left ??
+          0;
       final reverseDirectionDistance = fingerDocumentOffset.dx - upstreamSelectionX;
       final startedMovingBackward = !_isSelectingByCharacter &&
           isMovingBackward &&
@@ -580,8 +581,9 @@ class AndroidDocumentLongPressSelectionStrategy {
         nodePosition: TextNodePosition(offset: _longPressMostRecentDownstreamWordBoundary!),
       );
       final downstreamSelectionX = _docLayout
-          .getRectForSelection(longPressMostRecentDownstreamWordBoundaryPosition, _longPressInitialSelection!.start)!
-          .right;
+              .getRectForSelection(longPressMostRecentDownstreamWordBoundaryPosition, _longPressInitialSelection!.start)
+              ?.right ??
+          0;
       final reverseDirectionDistance = downstreamSelectionX - fingerDocumentOffset.dx;
       final startedMovingBackward = !_isSelectingByCharacter &&
           isMovingBackward &&

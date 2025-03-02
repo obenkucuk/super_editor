@@ -1,15 +1,11 @@
 import 'package:attributed_text/attributed_text.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:super_editor/src/core/edit_context.dart';
-import 'package:super_editor/src/core/editor.dart';
 import 'package:super_editor/src/core/styles.dart';
 import 'package:super_editor/src/default_editor/attributions.dart';
 import 'package:super_editor/src/default_editor/blocks/indentation.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
 import 'package:super_editor/src/infrastructure/attributed_text_styles.dart';
-import 'package:super_editor/src/infrastructure/keyboard.dart';
 import 'package:super_text_layout/super_text_layout.dart';
 
 import '../core/document.dart';
@@ -62,6 +58,7 @@ class BlockquoteComponentBuilder implements ComponentBuilder {
       textDirection: textDirection,
       textAlignment: textAlign,
       selectionColor: const Color(0x00000000),
+      sectionSelectionColor: const Color(0x00000000),
     );
   }
 
@@ -82,6 +79,7 @@ class BlockquoteComponentBuilder implements ComponentBuilder {
       borderRadius: componentViewModel.borderRadius,
       textSelection: componentViewModel.selection,
       selectionColor: componentViewModel.selectionColor,
+      sectionSelectionColor: componentViewModel.sectionSelectionColor,
       highlightWhenEmpty: componentViewModel.highlightWhenEmpty,
       underlines: componentViewModel.createUnderlines(),
     );
@@ -103,7 +101,9 @@ class BlockquoteComponentViewModel extends SingleColumnLayoutComponentViewModel 
     required this.backgroundColor,
     required this.borderRadius,
     this.selection,
+    this.sectionSelection,
     required this.selectionColor,
+    required this.sectionSelectionColor,
     this.highlightWhenEmpty = false,
     TextRange? composingRegion,
     bool showComposingRegionUnderline = false,
@@ -139,7 +139,11 @@ class BlockquoteComponentViewModel extends SingleColumnLayoutComponentViewModel 
   @override
   TextSelection? selection;
   @override
+  TextSelection? sectionSelection;
+  @override
   Color selectionColor;
+  @override
+  Color sectionSelectionColor;
   @override
   bool highlightWhenEmpty;
 
@@ -170,6 +174,7 @@ class BlockquoteComponentViewModel extends SingleColumnLayoutComponentViewModel 
       borderRadius: borderRadius,
       selection: selection,
       selectionColor: selectionColor,
+      sectionSelectionColor: sectionSelectionColor,
       highlightWhenEmpty: highlightWhenEmpty,
       spellingErrorUnderlineStyle: spellingErrorUnderlineStyle,
       spellingErrors: List.from(spellingErrors),
@@ -195,6 +200,7 @@ class BlockquoteComponentViewModel extends SingleColumnLayoutComponentViewModel 
           borderRadius == other.borderRadius &&
           selection == other.selection &&
           selectionColor == other.selectionColor &&
+          sectionSelectionColor == other.sectionSelectionColor &&
           highlightWhenEmpty == other.highlightWhenEmpty &&
           spellingErrorUnderlineStyle == other.spellingErrorUnderlineStyle &&
           const DeepCollectionEquality().equals(spellingErrors, other.spellingErrors) &&
@@ -215,6 +221,7 @@ class BlockquoteComponentViewModel extends SingleColumnLayoutComponentViewModel 
       borderRadius.hashCode ^
       selection.hashCode ^
       selectionColor.hashCode ^
+      sectionSelectionColor.hashCode ^
       highlightWhenEmpty.hashCode ^
       spellingErrorUnderlineStyle.hashCode ^
       spellingErrors.hashCode ^
@@ -233,9 +240,11 @@ class BlockquoteComponent extends StatelessWidget {
     required this.styleBuilder,
     this.inlineWidgetBuilders = const [],
     this.textSelection,
+    this.sectionSelection,
     this.indent = 0,
     this.indentCalculator = defaultParagraphIndentCalculator,
     this.selectionColor = Colors.lightBlueAccent,
+    this.sectionSelectionColor = Colors.amber,
     required this.backgroundColor,
     required this.borderRadius,
     this.highlightWhenEmpty = false,
@@ -248,9 +257,11 @@ class BlockquoteComponent extends StatelessWidget {
   final AttributionStyleBuilder styleBuilder;
   final InlineWidgetBuilderChain inlineWidgetBuilders;
   final TextSelection? textSelection;
+  final TextSelection? sectionSelection;
   final int indent;
   final TextBlockIndentCalculator indentCalculator;
   final Color selectionColor;
+  final Color sectionSelectionColor;
   final Color backgroundColor;
   final BorderRadius borderRadius;
   final bool highlightWhenEmpty;
@@ -283,6 +294,7 @@ class BlockquoteComponent extends StatelessWidget {
                 textStyleBuilder: styleBuilder,
                 inlineWidgetBuilders: inlineWidgetBuilders,
                 textSelection: textSelection,
+                sectionSelection: sectionSelection,
                 selectionColor: selectionColor,
                 highlightWhenEmpty: highlightWhenEmpty,
                 underlines: underlines,

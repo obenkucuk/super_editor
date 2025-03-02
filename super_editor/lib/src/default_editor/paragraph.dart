@@ -2,6 +2,7 @@ import 'package:attributed_text/attributed_text.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:super_editor/src/core/document.dart';
 import 'package:super_editor/src/core/document_composer.dart';
 import 'package:super_editor/src/core/document_layout.dart';
@@ -138,6 +139,7 @@ class ParagraphComponentBuilder implements ComponentBuilder {
       textDirection: textDirection,
       textAlignment: textAlign,
       selectionColor: const Color(0x00000000),
+      sectionSelectionColor: const Color(0x00000000),
     );
   }
 
@@ -180,7 +182,9 @@ class ParagraphComponentViewModel extends SingleColumnLayoutComponentViewModel w
     this.textAlignment = TextAlign.left,
     this.textScaler,
     this.selection,
+    this.sectionSelection,
     required this.selectionColor,
+    required this.sectionSelectionColor,
     this.highlightWhenEmpty = false,
     TextRange? composingRegion,
     bool showComposingRegionUnderline = false,
@@ -223,7 +227,11 @@ class ParagraphComponentViewModel extends SingleColumnLayoutComponentViewModel w
   @override
   TextSelection? selection;
   @override
+  TextSelection? sectionSelection;
+  @override
   Color selectionColor;
+  @override
+  Color sectionSelectionColor;
   @override
   bool highlightWhenEmpty;
 
@@ -243,7 +251,9 @@ class ParagraphComponentViewModel extends SingleColumnLayoutComponentViewModel w
       textAlignment: textAlignment,
       textScaler: textScaler,
       selection: selection,
+      sectionSelection: sectionSelection,
       selectionColor: selectionColor,
+      sectionSelectionColor: sectionSelectionColor,
       highlightWhenEmpty: highlightWhenEmpty,
       spellingErrorUnderlineStyle: spellingErrorUnderlineStyle,
       spellingErrors: List.from(spellingErrors),
@@ -268,7 +278,9 @@ class ParagraphComponentViewModel extends SingleColumnLayoutComponentViewModel w
           textAlignment == other.textAlignment &&
           textScaler == other.textScaler &&
           selection == other.selection &&
+          sectionSelection == other.sectionSelection &&
           selectionColor == other.selectionColor &&
+          sectionSelectionColor == other.sectionSelectionColor &&
           highlightWhenEmpty == other.highlightWhenEmpty &&
           spellingErrorUnderlineStyle == other.spellingErrorUnderlineStyle &&
           const DeepCollectionEquality().equals(spellingErrors, other.spellingErrors) &&
@@ -288,7 +300,9 @@ class ParagraphComponentViewModel extends SingleColumnLayoutComponentViewModel w
       textAlignment.hashCode ^
       textScaler.hashCode ^
       selection.hashCode ^
+      sectionSelection.hashCode ^
       selectionColor.hashCode ^
+      sectionSelectionColor.hashCode ^
       highlightWhenEmpty.hashCode ^
       spellingErrorUnderlineStyle.hashCode ^
       spellingErrors.hashCode ^
@@ -346,7 +360,6 @@ class _ParagraphComponentState extends State<ParagraphComponent>
           Expanded(
             child: TextComponent(
               key: _textKey,
-              nodeId: widget.viewModel.nodeId,
               text: widget.viewModel.text,
               textDirection: widget.viewModel.textDirection,
               textAlign: widget.viewModel.textAlignment,
@@ -359,7 +372,9 @@ class _ParagraphComponentState extends State<ParagraphComponent>
                     }
                   : {},
               textSelection: widget.viewModel.selection,
+              sectionSelection: widget.viewModel.sectionSelection,
               selectionColor: widget.viewModel.selectionColor,
+              sectionSelectionColor: widget.viewModel.sectionSelectionColor,
               highlightWhenEmpty: widget.viewModel.highlightWhenEmpty,
               underlines: widget.viewModel.createUnderlines(),
               showDebugPaint: widget.showDebugPaint,

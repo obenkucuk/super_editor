@@ -35,6 +35,7 @@ class DocumentScrollable extends StatefulWidget {
     this.showDebugPaint = false,
     required this.shrinkWrap,
     required this.child,
+    required this.boxKey,
   }) : super(key: key);
 
   /// Controller that adjusts the scroll offset of this [DocumentScrollable].
@@ -66,6 +67,8 @@ class DocumentScrollable extends StatefulWidget {
   /// Whether to shrink wrap the [CustomScrollView] that's used to host
   /// the editor content. Only used when there's no ancestor [Scrollable].
   final bool shrinkWrap;
+
+  final GlobalKey boxKey;
 
   @override
   State<DocumentScrollable> createState() => _DocumentScrollableState();
@@ -211,7 +214,8 @@ class _DocumentScrollableState extends State<DocumentScrollable> with SingleTick
         behavior: scrollBehavior.copyWith(scrollbars: false),
         child: CustomScrollView(
           controller: _scrollController,
-          shrinkWrap: widget.shrinkWrap,
+          // shrinkWrap: widget.shrinkWrap,
+          key: widget.boxKey,
           slivers: [child],
         ),
       ),

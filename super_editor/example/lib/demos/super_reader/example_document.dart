@@ -146,6 +146,14 @@ Document createInitialDocument() {
           "",
         ),
       ),
+      ...List.generate(
+          100,
+          (i) => ParagraphNode(
+                id: '11111$i',
+                text: AttributedText(
+                  "$i We hope you enjoy using Super Editor. \nYeni satır Let us know what you're building, and please file issues for any bugs that you find. We hope you enjoy using Super Editor. Let us know what you're building, and please file issues for any bugs that you find. We hope you enjoy using Super Editor.",
+                ),
+              ))
     ],
   );
 }

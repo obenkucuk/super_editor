@@ -1102,8 +1102,14 @@ class MutableDocument with Iterable<DocumentNode> implements Document, Editable 
   /// Maps a node id to its index in the node list.
   final Map<String, int> _nodeIndicesById = {};
 
+  final Map<String, int> _visibleCachedNodeIndicesById = {};
+
   /// Maps a node id to its node.
   final Map<String, DocumentNode> _nodesById = {};
+
+  final Map<String, DocumentNode> _visibleCachedNodesById = {};
+
+  final List<String> _visibleCachedNodeIds = [];
 
   final _listeners = <DocumentChangeListener>[];
 
@@ -1118,7 +1124,34 @@ class MutableDocument with Iterable<DocumentNode> implements Document, Editable 
 
   @override
   DocumentNode? getNodeById(String nodeId) {
-    return _nodesById[nodeId];
+    return _visibleCachedNodesById[nodeId] ?? _nodesById[nodeId];
+  }
+
+  @override
+  void addToVisibleNodeIds(String nodeId) {
+    if (_visibleCachedNodeIds.contains(nodeId)) {
+      return;
+    }
+
+    final node = _nodesById[nodeId];
+    if (node != null) {
+      _visibleCachedNodeIndicesById[nodeId] = _nodeIndicesById[nodeId]!;
+      _visibleCachedNodesById[nodeId] = node;
+    }
+
+    _visibleCachedNodeIds.add(nodeId);
+  }
+
+  @override
+  void removeFromVisibleNodeIds(String nodeId) {
+    if (_visibleCachedNodeIds.length > 200) {
+      _visibleCachedNodeIds.removeRange(0, 100);
+    }
+  }
+
+  @override
+  void clearVisibleNodeIds() {
+    _visibleCachedNodeIds.clear();
   }
 
   @override
@@ -1148,7 +1181,7 @@ class MutableDocument with Iterable<DocumentNode> implements Document, Editable 
 
   @override
   int getNodeIndexById(String nodeId) {
-    return _nodeIndicesById[nodeId] ?? -1;
+    return _visibleCachedNodeIndicesById[nodeId] ?? _nodeIndicesById[nodeId] ?? -1;
   }
 
   @override
@@ -1386,6 +1419,19 @@ class MutableDocument with Iterable<DocumentNode> implements Document, Editable 
     _didReset = true;
   }
 
+  void _refreshVisibleNodeIdCaches() {
+    _visibleCachedNodeIndicesById.clear();
+    _visibleCachedNodesById.clear();
+
+    for (var visibleNodeId in _visibleCachedNodeIds) {
+      final node = _nodesById[visibleNodeId];
+      if (node != null) {
+        _visibleCachedNodeIndicesById[visibleNodeId] = _nodeIndicesById[visibleNodeId]!;
+        _visibleCachedNodesById[visibleNodeId] = node;
+      }
+    }
+  }
+
   /// Updates all the maps which use the node id as the key.
   ///
   /// All the maps are cleared and re-populated.
@@ -1397,6 +1443,8 @@ class MutableDocument with Iterable<DocumentNode> implements Document, Editable 
       _nodeIndicesById[node.id] = i;
       _nodesById[node.id] = node;
     }
+
+    _refreshVisibleNodeIdCaches();
   }
 
   @override

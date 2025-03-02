@@ -31,6 +31,7 @@ class ReadOnlyTaskComponentBuilder implements ComponentBuilder {
       textAlignment: textDirection == TextDirection.ltr ? TextAlign.left : TextAlign.right,
       textStyleBuilder: noStyleBuilder,
       selectionColor: const Color(0x00000000),
+      sectionSelectionColor: const Color(0x00000000),
     );
   }
 
@@ -42,7 +43,6 @@ class ReadOnlyTaskComponentBuilder implements ComponentBuilder {
     }
 
     return TaskComponent(
-      nodeId: componentViewModel.nodeId,
       key: componentContext.componentKey,
       viewModel: componentViewModel,
     );

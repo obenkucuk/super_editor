@@ -1,6 +1,4 @@
 import 'package:attributed_text/attributed_text.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
 
@@ -26,10 +24,8 @@ extension ComputeTextSpan on AttributedText {
   InlineSpan computeInlineSpan(
     BuildContext context,
     AttributionStyleBuilder styleBuilder,
-    InlineWidgetBuilderChain inlineWidgetBuilders, {
-    String? nodeId,
-    List<TapGestureRecognizer>? gestureRecognizers,
-  }) {
+    InlineWidgetBuilderChain inlineWidgetBuilders,
+  ) {
     if (isEmpty) {
       // There is no text and therefore no attributions.
       return TextSpan(text: '', style: styleBuilder({}));
@@ -101,82 +97,11 @@ extension ComputeTextSpan on AttributedText {
       }
     }
 
-    final List<InlineSpan> editedInlineSpans = [];
-
-    for (var element in inlineSpans) {
-      final text = element.toPlainText();
-
-      final splited = text.split(RegExp(r'(?<=[.!?])\s+'));
-
-      if (splited.length > 1) {
-        for (var i = 0; i < splited.length; i++) {
-          final text = splited[i] + (i == splited.length - 1 ? "" : " ");
-          final span = TextSpan(text: text, style: element.style);
-          editedInlineSpans.add(span);
-        }
-      } else {
-        editedInlineSpans.add(element);
-      }
-    }
-
-    List<TextSpan> groupWordsBySentences({
-      required List<InlineSpan> wordSpans,
-      required List<({int index, String text})> sentences,
-    }) {
-      List<TextSpan> groupedSpans = [];
-      int currentWordIndex = 0;
-
-      for (({int index, String text}) sentence in sentences) {
-        if (currentWordIndex >= wordSpans.length) break;
-
-        String currentSentence = '';
-        List<TextSpan> currentGroup = [];
-
-        // Kelimeleri birleştirip cümleyi oluştur
-        while (currentWordIndex < wordSpans.length) {
-          TextSpan currentWord = wordSpans[currentWordIndex] as TextSpan;
-          String wordText = currentWord.text ?? '';
-
-          // Boşlukları kontrol et
-
-          currentSentence += wordText;
-
-          currentGroup.add(currentWord);
-
-          // Cümle tamamlandı mı kontrol et
-          if (currentSentence.trim() == sentence.text.trim()) {
-            // Grup TextSpan'i oluştur
-            groupedSpans.add(
-              TextSpan(
-                children: currentGroup
-                    .map((e) => TextSpan(
-                          text: e.text,
-                          style: e.style,
-                          children: e.children,
-                          recognizer: gestureRecognizers?.elementAt(sentence.index),
-                        ))
-                    .toList(),
-                style: styleBuilder({}),
-              ),
-            );
-
-            currentWordIndex++;
-            break;
-          }
-
-          currentWordIndex++;
-        }
-      }
-
-      return groupedSpans;
-    }
-
-    final grupedSpans = groupWordsBySentences(
-      wordSpans: editedInlineSpans,
-      sentences: sectences,
+    return TextSpan(
+      text: "",
+      children: inlineSpans,
+      style: styleBuilder({}),
     );
-
-    return TextSpan(text: "", children: grupedSpans, style: styleBuilder({}));
   }
 
   /// Returns a Flutter [TextSpan] that is styled based on the

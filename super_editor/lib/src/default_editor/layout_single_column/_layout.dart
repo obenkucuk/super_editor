@@ -1,13 +1,8 @@
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
-import 'package:super_editor/src/core/document.dart';
-import 'package:super_editor/src/core/document_layout.dart';
-import 'package:super_editor/src/core/document_selection.dart';
-import 'package:super_editor/src/infrastructure/_logging.dart';
-
-import '_presenter.dart';
+import 'package:super_editor/super_editor.dart';
 
 /// Displays a document in a single-column layout.
 ///
@@ -29,6 +24,9 @@ class SingleColumnDocumentLayout extends StatefulWidget {
     Key? key,
     required this.presenter,
     required this.componentBuilders,
+    required this.boxKey,
+    required this.document,
+    required this.scrollController,
     this.onBuildScheduled,
     this.showDebugPaint = false,
   }) : super(key: key);
@@ -36,6 +34,11 @@ class SingleColumnDocumentLayout extends StatefulWidget {
   /// Presenter that provides a view model for a complete single-column
   /// document layout.
   final SingleColumnLayoutPresenter presenter;
+
+  final GlobalKey boxKey;
+  final ScrollController scrollController;
+
+  final Document document;
 
   /// Builders for every type of component that this layout displays.
   ///
@@ -63,23 +66,66 @@ class SingleColumnDocumentLayout extends StatefulWidget {
 }
 
 class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout> implements DocumentLayout {
-  final Map<String, GlobalKey> _nodeIdsToComponentKeys = {};
-  final Map<GlobalKey, String> _componentKeysToNodeIds = {};
+  final Map<String, GlobalKey> mountedNodeIdsToComponentKeys = {};
+  final Map<GlobalKey, String> mountedComponentKeysToNodeIds = {};
+
+  Map<String, GlobalKey> get _nodeIdsToComponentKeys {
+    return mountedNodeIdsToComponentKeys;
+  }
+
+  Map<GlobalKey, String> get _componentKeysToNodeIds {
+    return mountedComponentKeysToNodeIds;
+  }
 
   // Keys are cached in top-to-bottom order so that we can visually
   // traverse components without repeatedly querying a `Document`
   // to determine component ordering.
-  final List<GlobalKey> _topToBottomComponentKeys = [];
+  // final List<GlobalKey?> topToBottomComponentKeys = List<GlobalKey?>.filled(2000, null);
+
+  // List<GlobalKey?> get _topToBottomComponentKeys =>
+  //     topToBottomComponentKeys.where((element) => element != null).toList();
+
+  final List<({int index, GlobalKey key})> mountedComponentKeys = [];
+
+  List<GlobalKey> get _topToBottomComponentKeys => mountedComponentKeys
+      .sorted((a, b) => a.index.compareTo(b.index))
+      .map((e) => e.key)
+      .where((key) => key.currentContext != null)
+      .toList();
+
+  GlobalKey<State<StatefulWidget>>? get _lastComponentKey {
+    return _topToBottomComponentKeys.reversed.firstWhereOrNull((key) => key.currentState?.mounted == true);
+  }
+
+  GlobalKey<State<StatefulWidget>>? get _firstComponentKey {
+    return _topToBottomComponentKeys.firstWhereOrNull((key) => key.currentState?.mounted == true);
+  }
+
+  @override
+  double get scrollOffset => widget.scrollController.offset;
+
+  @override
+  GlobalKey get boxKey => widget.boxKey;
+
+  @override
+  Document get document => widget.document;
+
+  @override
+  String get lastMountedNodeId => _componentKeysToNodeIds[_lastComponentKey!]!;
+  @override
+  String get firstMountedNodeId => _componentKeysToNodeIds[_firstComponentKey!]!;
 
   late SingleColumnLayoutPresenterChangeListener _presenterListener;
 
   // The key for the renderBox that contains the actual document layout.
-  final GlobalKey _boxKey = GlobalKey();
-  BuildContext get boxContext => _boxKey.currentContext!;
+  BuildContext get boxContext => widget.boxKey.currentContext!;
 
   @override
   void initState() {
     super.initState();
+    // widget.presenter.selection?.addListener(() {
+    //   print(widget.presenter.selection!.value?.extent == widget.presenter.selection!.value?.base);
+    // });
 
     _presenterListener = SingleColumnLayoutPresenterChangeListener(
       onPresenterMarkedDirty: _onPresenterMarkedDirty,
@@ -207,8 +253,7 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
       return true;
     }
 
-    final componentKey = _topToBottomComponentKeys.first;
-    final componentBox = componentKey.currentContext!.findRenderObject() as RenderBox;
+    final componentBox = _firstComponentKey!.currentContext!.findRenderObject() as RenderBox;
     final offsetAtComponent = _componentOffset(componentBox, documentOffset);
 
     return offsetAtComponent.dy < 0.0;
@@ -221,15 +266,21 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
       return true;
     }
 
-    final componentKey = _topToBottomComponentKeys.last;
-    final componentBox = componentKey.currentContext!.findRenderObject() as RenderBox;
+    if (_lastComponentKey == null) {
+      return true;
+    }
+    final componentBox = _lastComponentKey!.currentContext!.findRenderObject() as RenderBox;
     final offsetAtComponent = _componentOffset(componentBox, documentOffset);
 
     return offsetAtComponent.dy > componentBox.size.height;
   }
 
   @override
-  Rect? getEdgeForPosition(DocumentPosition position) {
+  Rect? getEdgeForPosition(
+    DocumentPosition position, {
+    Offset initial = Offset.zero,
+    bool insertScrollOffset = false,
+  }) {
     final component = getComponentByNodeId(position.nodeId);
     if (component == null) {
       editorLayoutLog.info('Could not find any component for node position: $position');
@@ -239,13 +290,21 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
     final componentEdge = component.getEdgeForPosition(position.nodePosition);
 
     final componentBox = component.context.findRenderObject() as RenderBox;
-    final docOffset = componentBox.localToGlobal(Offset.zero, ancestor: boxContext.findRenderObject());
+
+    if (insertScrollOffset) {
+      initial = Offset(0, widget.scrollController.offset);
+    } else if (initial != Offset.zero) {
+      initial = initial;
+    } else {
+      initial = Offset.zero;
+    }
+    final docOffset = componentBox.localToGlobal(initial, ancestor: boxContext.findRenderObject());
 
     return componentEdge.translate(docOffset.dx, docOffset.dy);
   }
 
   @override
-  Rect? getRectForPosition(DocumentPosition position) {
+  Rect? getRectForPosition(DocumentPosition position, {bool insertScrollOffset = false}) {
     final component = getComponentByNodeId(position.nodeId);
     if (component == null) {
       editorLayoutLog.info('Could not find any component for node position: $position');
@@ -255,13 +314,16 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
     final componentRect = component.getRectForPosition(position.nodePosition);
 
     final componentBox = component.context.findRenderObject() as RenderBox;
-    final docOffset = componentBox.localToGlobal(Offset.zero, ancestor: boxContext.findRenderObject());
+    final docOffset = componentBox.localToGlobal(
+      insertScrollOffset ? Offset(0, widget.scrollController.offset) : Offset.zero,
+      ancestor: boxContext.findRenderObject(),
+    );
 
     return componentRect.translate(docOffset.dx, docOffset.dy);
   }
 
   @override
-  Rect? getRectForSelection(DocumentPosition base, DocumentPosition extent) {
+  Rect? getRectForSelection(DocumentPosition base, DocumentPosition extent, {bool insertScrollOffset = false}) {
     final baseComponent = getComponentByNodeId(base.nodeId);
     final extentComponent = getComponentByNodeId(extent.nodeId);
     if (baseComponent == null || extentComponent == null) {
@@ -278,8 +340,9 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
     if (base.nodeId == extent.nodeId) {
       // Selection within a single node.
       topComponent = extentComponent;
-      final componentOffsetInDocument = (topComponent.context.findRenderObject() as RenderBox)
-          .localToGlobal(Offset.zero, ancestor: documentLayoutBox);
+      final componentOffsetInDocument = (topComponent.context.findRenderObject() as RenderBox).localToGlobal(
+          insertScrollOffset ? Offset(0, widget.scrollController.offset) : Offset.zero,
+          ancestor: documentLayoutBox);
 
       final componentBoundingBox = extentComponent
           .getRectForSelection(
@@ -300,9 +363,9 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
 
       for (int i = 0; i < selectedNodes.length; ++i) {
         final component = getComponentByNodeId(selectedNodes[i])!;
-        final componentOffsetInDocument =
-            (component.context.findRenderObject() as RenderBox).localToGlobal(Offset.zero, ancestor: documentLayoutBox);
-
+        final componentOffsetInDocument = (component.context.findRenderObject() as RenderBox).localToGlobal(
+            insertScrollOffset ? Offset(0, widget.scrollController.offset) : Offset.zero,
+            ancestor: documentLayoutBox);
         if (i == 0) {
           // This is the first node. The selection goes from
           // startPosition to the end of the node.
@@ -354,7 +417,29 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
     return boundingBox;
   }
 
+  String? _getNodeIdsBetweenCachedBaseNodeId;
+  String? _getNodeIdsBetweenCachedExtentNodeId;
+  List<String>? _getNodeIdsBetweenCachedNodeIds;
+
+  // int a = 0;
+  // int b = 0;
+
   List<String> _getNodeIdsBetween(String baseNodeId, String extentNodeId) {
+    // a++;
+    // print('a: $a');
+    if ((baseNodeId == _getNodeIdsBetweenCachedBaseNodeId) &&
+        (extentNodeId == _getNodeIdsBetweenCachedExtentNodeId) &&
+        _getNodeIdsBetweenCachedNodeIds != null) {
+      return _getNodeIdsBetweenCachedNodeIds!;
+    } else {
+      _getNodeIdsBetweenCachedNodeIds = null;
+      _getNodeIdsBetweenCachedBaseNodeId = baseNodeId;
+      _getNodeIdsBetweenCachedExtentNodeId = extentNodeId;
+    }
+
+    // b++;
+    // print('b: $b');
+
     final baseComponentKey = _nodeIdsToComponentKeys[baseNodeId]!;
     final baseComponentIndex = _topToBottomComponentKeys.indexOf(baseComponentKey);
     final extentComponentKey = _nodeIdsToComponentKeys[extentNodeId]!;
@@ -364,7 +449,10 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
     final bottomNodeIndex = topNodeIndex == baseComponentIndex ? extentComponentIndex : baseComponentIndex;
     final componentsInside = _topToBottomComponentKeys.sublist(topNodeIndex, bottomNodeIndex + 1);
 
-    return componentsInside.map((componentKey) => _componentKeysToNodeIds[componentKey]!).toList();
+    final ids = componentsInside.map((componentKey) => _componentKeysToNodeIds[componentKey]!).toSet().toList();
+
+    _getNodeIdsBetweenCachedNodeIds = ids;
+    return ids;
   }
 
   @override
@@ -383,9 +471,9 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
     // Find the top and bottom nodes in the selection region. We do this by finding the component
     // at the top of the selection, then we iterate down the document until we find the bottom
     // component in the selection region. We obtain the document nodes from the components.
-    final selectionRegionTopOffset = min(baseOffset.dy, extentOffset.dy);
-    final componentSearchStartIndex = max(_findComponentIndexAtOffset(selectionRegionTopOffset), 0);
-    for (int i = componentSearchStartIndex; i < _topToBottomComponentKeys.length; i++) {
+    // final selectionRegionTopOffset = min(baseOffset.dy, extentOffset.dy);
+    // final componentSearchStartIndex = max(_findComponentIndexAtOffset(selectionRegionTopOffset), 0);
+    for (int i = 0; i < _topToBottomComponentKeys.length; i++) {
       final componentKey = _topToBottomComponentKeys[i];
       editorLayoutLog.info(' - considering component "$componentKey"');
       if (componentKey.currentState is! DocumentComponent) {
@@ -582,8 +670,8 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
       return null;
     }
 
-    final componentKey = _topToBottomComponentKeys.first;
-    final component = componentKey.currentState as DocumentComponent;
+    final componentKey = _firstComponentKey;
+    final component = componentKey!.currentState as DocumentComponent;
 
     return DocumentPosition(
       nodeId: _componentKeysToNodeIds[componentKey]!,
@@ -597,8 +685,8 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
       return null;
     }
 
-    final componentKey = _topToBottomComponentKeys.last;
-    final component = componentKey.currentState as DocumentComponent;
+    final componentKey = _lastComponentKey;
+    final component = componentKey!.currentState as DocumentComponent;
 
     return DocumentPosition(
       nodeId: _componentKeysToNodeIds[componentKey]!,
@@ -651,10 +739,10 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
     if (key.currentState is! DocumentComponent) {
       editorLayoutLog.info(
           'WARNING: found component but it\'s not a DocumentComponent: $nodeId, layout key: $key, state: ${key.currentState}, widget: ${key.currentWidget}, context: ${key.currentContext}');
-      if (kDebugMode) {
-        throw Exception(
-            'WARNING: found component but it\'s not a DocumentComponent: $nodeId, layout key: $key, state: ${key.currentState}, widget: ${key.currentWidget}, context: ${key.currentContext}');
-      }
+      // if (kDebugMode) {
+      //   throw Exception(
+      //       'WARNING: found component but it\'s not a DocumentComponent: $nodeId, layout key: $key, state: ${key.currentState}, widget: ${key.currentWidget}, context: ${key.currentContext}');
+      // }
       return null;
     }
     return key.currentState as DocumentComponent;
@@ -710,15 +798,9 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
   @override
   Widget build(BuildContext context) {
     editorLayoutLog.fine("Building document layout");
-    final result = SliverToBoxAdapter(
-      child: Padding(
-        key: _boxKey,
-        padding: widget.presenter.viewModel.padding,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: _buildDocComponents(),
-        ),
+    final result = SliverList(
+      delegate: SliverChildListDelegate(
+        _buildDocComponents(),
       ),
     );
 
@@ -736,7 +818,8 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
 
     final viewModel = widget.presenter.viewModel;
     editorLayoutLog.fine("Rendering layout view model: ${viewModel.hashCode}");
-    for (final componentViewModel in viewModel.componentViewModels) {
+    for (var i = 0; i < viewModel.componentViewModels.length; i++) {
+      final componentViewModel = viewModel.componentViewModels.elementAt(i);
       final componentKey = _obtainComponentKeyForDocumentNode(
         newComponentKeyMap: newComponentKeys,
         nodeId: componentViewModel.nodeId,
@@ -744,7 +827,7 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
       newNodeIds[componentKey] = componentViewModel.nodeId;
       editorLayoutLog.finer('Node -> Key: ${componentViewModel.nodeId} -> $componentKey');
 
-      _topToBottomComponentKeys.add(componentKey);
+      // _topToBottomComponentKeys.add(componentKey);
 
       docComponents.add(
         // Rebuilds whenever this particular component view model changes
@@ -752,11 +835,22 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
         _PresenterComponentBuilder(
           presenter: widget.presenter,
           watchNode: componentViewModel.nodeId,
-          builder: (context, newComponentViewModel) {
+          mountedComponentKeysToNodeIds: mountedComponentKeysToNodeIds,
+          mountedNodeIdsToComponentKeys: mountedNodeIdsToComponentKeys,
+          index: i,
+          addToDocCache: (id) {
+            widget.document.addToVisibleNodeIds(id);
+          },
+          removeFromDocCache: (id) {
+            widget.document.removeFromVisibleNodeIds(id);
+          },
+          componentKey: componentKey,
+          mountedListGetter: () => mountedComponentKeys,
+          builder: (context, newComponentViewModel, globalKey) {
             // Converts the component view model into a widget.
             return _Component(
               componentBuilders: widget.componentBuilders,
-              componentKey: componentKey,
+              componentKey: globalKey,
               componentViewModel: newComponentViewModel,
             );
           },
@@ -764,18 +858,18 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
       );
     }
 
-    _nodeIdsToComponentKeys
-      ..clear()
-      ..addAll(newComponentKeys);
+    // nodeIdsToComponentKeys
+    //   ..clear()
+    //   ..addAll(newComponentKeys);
 
-    _componentKeysToNodeIds
-      ..clear()
-      ..addAll(newNodeIds);
+    // componentKeysToNodeIds
+    //   ..clear()
+    //   ..addAll(newNodeIds);
 
     editorLayoutLog.finer(' - keys -> IDs after building all components:');
-    _nodeIdsToComponentKeys.forEach((key, value) {
-      editorLayoutLog.finer('   - $key: $value');
-    });
+    // _nodeIdsToComponentKeys.forEach((key, value) {
+    //   editorLayoutLog.finer('   - $key: $value');
+    // });
 
     return docComponents;
   }
@@ -801,64 +895,64 @@ class _SingleColumnDocumentLayoutState extends State<SingleColumnDocumentLayout>
   /// Finds the component whose vertical bounds contains the offset [dy].
   ///
   /// Returns the index of the component, from top to bottom order.
-  int _findComponentIndexAtOffset(double dy) {
-    if (_topToBottomComponentKeys.isEmpty) {
-      return -1;
-    }
-    return _binarySearchComponentIndexAtOffset(dy, 0, _topToBottomComponentKeys.length - 1);
-  }
+  // int _findComponentIndexAtOffset(double dy) {
+  //   if (_topToBottomComponentKeys.isEmpty) {
+  //     return -1;
+  //   }
+  //   return _binarySearchComponentIndexAtOffset(dy, 0, _topToBottomComponentKeys.length - 1);
+  // }
 
   /// Performs a binary search starting from [minIndex] to [maxIndex] to find
   /// a component whose bounds contains the offset [dy].
   ///
   /// Returns the index of the component, from top to bottom order.
-  int _binarySearchComponentIndexAtOffset(double dy, int minIndex, int maxIndex) {
-    if (minIndex > maxIndex) {
-      return -1;
-    }
+  // int _binarySearchComponentIndexAtOffset(double dy, int minIndex, int maxIndex) {
+  //   if (minIndex > maxIndex) {
+  //     return -1;
+  //   }
 
-    final middleIndex = ((minIndex + maxIndex) / 2).floor();
-    final componentBounds = _getComponentBoundsByIndex(middleIndex);
+  //   final middleIndex = ((minIndex + maxIndex) / 2).floor();
+  //   final componentBounds = _getComponentBoundsByIndex(middleIndex);
 
-    if (componentBounds.top <= dy && dy <= componentBounds.bottom) {
-      // The component in the middle of the search region is the one we're looking for. Return its index.
-      return middleIndex;
-    }
+  //   if (componentBounds.top <= dy && dy <= componentBounds.bottom) {
+  //     // The component in the middle of the search region is the one we're looking for. Return its index.
+  //     return middleIndex;
+  //   }
 
-    if (dy > componentBounds.bottom) {
-      if (middleIndex + 1 < _topToBottomComponentKeys.length) {
-        // Check the gap between two components.
-        final nextComponentBounds = _getComponentBoundsByIndex(middleIndex + 1);
-        final gap = nextComponentBounds.top - componentBounds.bottom;
-        if (componentBounds.bottom < dy && dy < (componentBounds.bottom + gap / 2)) {
-          // The component we're looking for is somewhere in the bottom half of the current search region.
-          return middleIndex;
-        }
-      }
-      return _binarySearchComponentIndexAtOffset(dy, middleIndex + 1, maxIndex);
-    } else {
-      if (middleIndex - 1 >= 0) {
-        // Check the gap between two components.
-        final previousComponentBounds = _getComponentBoundsByIndex(middleIndex - 1);
-        final gap = componentBounds.top - previousComponentBounds.bottom;
-        if ((componentBounds.top - gap / 2) < dy && dy < componentBounds.top) {
-          // The component we're looking for is somewhere in the top half of the current search region.
-          return middleIndex;
-        }
-      }
-      return _binarySearchComponentIndexAtOffset(dy, minIndex, middleIndex - 1);
-    }
-  }
+  //   if (dy > componentBounds.bottom) {
+  //     if (middleIndex + 1 < _topToBottomComponentKeys.length) {
+  //       // Check the gap between two components.
+  //       final nextComponentBounds = _getComponentBoundsByIndex(middleIndex + 1);
+  //       final gap = nextComponentBounds.top - componentBounds.bottom;
+  //       if (componentBounds.bottom < dy && dy < (componentBounds.bottom + gap / 2)) {
+  //         // The component we're looking for is somewhere in the bottom half of the current search region.
+  //         return middleIndex;
+  //       }
+  //     }
+  //     return _binarySearchComponentIndexAtOffset(dy, middleIndex + 1, maxIndex);
+  //   } else {
+  //     if (middleIndex - 1 >= 0) {
+  //       // Check the gap between two components.
+  //       final previousComponentBounds = _getComponentBoundsByIndex(middleIndex - 1);
+  //       final gap = componentBounds.top - previousComponentBounds.bottom;
+  //       if ((componentBounds.top - gap / 2) < dy && dy < componentBounds.top) {
+  //         // The component we're looking for is somewhere in the top half of the current search region.
+  //         return middleIndex;
+  //       }
+  //     }
+  //     return _binarySearchComponentIndexAtOffset(dy, minIndex, middleIndex - 1);
+  //   }
+  // }
 
   /// Gets the component bounds of the component at [componentIndex] from top to bottom order.
-  Rect _getComponentBoundsByIndex(int componentIndex) {
-    final componentKey = _topToBottomComponentKeys[componentIndex];
-    final component = componentKey.currentState as DocumentComponent;
+  // Rect _getComponentBoundsByIndex(int componentIndex) {
+  //   final componentKey = _topToBottomComponentKeys[componentIndex];
+  //   final component = componentKey.currentState as DocumentComponent;
 
-    final componentBox = component.context.findRenderObject() as RenderBox;
-    final contentOffset = componentBox.localToGlobal(Offset.zero, ancestor: boxContext.findRenderObject());
-    return contentOffset & componentBox.size;
-  }
+  //   final componentBox = component.context.findRenderObject() as RenderBox;
+  //   final contentOffset = componentBox.localToGlobal(Offset.zero, ancestor: boxContext.findRenderObject());
+  //   return contentOffset & componentBox.size;
+  // }
 }
 
 class _PresenterComponentBuilder extends StatefulWidget {
@@ -867,11 +961,25 @@ class _PresenterComponentBuilder extends StatefulWidget {
     required this.presenter,
     required this.watchNode,
     required this.builder,
+    required this.index,
+    required this.componentKey,
+    required this.mountedListGetter,
+    required this.addToDocCache,
+    required this.removeFromDocCache,
+    required this.mountedNodeIdsToComponentKeys,
+    required this.mountedComponentKeysToNodeIds,
   }) : super(key: key);
 
   final SingleColumnLayoutPresenter presenter;
   final String watchNode;
-  final Widget Function(BuildContext, SingleColumnLayoutComponentViewModel) builder;
+  final int index;
+  final GlobalKey componentKey;
+  final List<({int index, GlobalKey key})> Function() mountedListGetter;
+  final Widget Function(BuildContext, SingleColumnLayoutComponentViewModel, GlobalKey) builder;
+  final void Function(String id) addToDocCache;
+  final void Function(String id) removeFromDocCache;
+  final Map<String, GlobalKey> mountedNodeIdsToComponentKeys;
+  final Map<GlobalKey, String> mountedComponentKeysToNodeIds;
 
   @override
   _PresenterComponentBuilderState createState() => _PresenterComponentBuilderState();
@@ -884,6 +992,13 @@ class _PresenterComponentBuilderState extends State<_PresenterComponentBuilder> 
   void initState() {
     super.initState();
 
+    widget.mountedListGetter().add((index: widget.index, key: widget.componentKey));
+
+    widget.mountedComponentKeysToNodeIds[widget.componentKey] = widget.watchNode;
+    widget.mountedNodeIdsToComponentKeys[widget.watchNode] = widget.componentKey;
+
+    widget.addToDocCache(widget.watchNode);
+
     _presenterListener = SingleColumnLayoutPresenterChangeListener(
       onViewModelChange: _onViewModelChange,
     );
@@ -894,6 +1009,22 @@ class _PresenterComponentBuilderState extends State<_PresenterComponentBuilder> 
   void didUpdateWidget(_PresenterComponentBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (widget.watchNode != oldWidget.watchNode ||
+        widget.index != oldWidget.index ||
+        widget.componentKey != oldWidget.componentKey) {
+      widget.mountedListGetter().removeWhere((element) => element.key == oldWidget.componentKey);
+      widget.mountedListGetter().add((index: widget.index, key: widget.componentKey));
+
+      widget.mountedComponentKeysToNodeIds.remove(oldWidget.componentKey);
+      widget.mountedNodeIdsToComponentKeys.remove(oldWidget.watchNode);
+
+      widget.mountedComponentKeysToNodeIds[widget.componentKey] = widget.watchNode;
+      widget.mountedNodeIdsToComponentKeys[widget.watchNode] = widget.componentKey;
+
+      widget.removeFromDocCache(oldWidget.watchNode);
+      widget.addToDocCache(widget.watchNode);
+    }
+
     if (widget.presenter != oldWidget.presenter) {
       oldWidget.presenter.removeChangeListener(_presenterListener);
       widget.presenter.addChangeListener(_presenterListener);
@@ -902,6 +1033,12 @@ class _PresenterComponentBuilderState extends State<_PresenterComponentBuilder> 
 
   @override
   void dispose() {
+    widget.mountedListGetter().removeWhere((element) => element.key == widget.componentKey);
+    widget.removeFromDocCache(widget.watchNode);
+
+    widget.mountedComponentKeysToNodeIds.remove(widget.componentKey);
+    widget.mountedNodeIdsToComponentKeys.remove(widget.watchNode);
+
     widget.presenter.removeChangeListener(_presenterListener);
     super.dispose();
   }
@@ -928,7 +1065,7 @@ class _PresenterComponentBuilderState extends State<_PresenterComponentBuilder> 
         .viewModel //
         .getComponentViewModelByNodeId(widget.watchNode)!;
 
-    return widget.builder(context, viewModel);
+    return widget.builder(context, viewModel, widget.componentKey);
   }
 }
 

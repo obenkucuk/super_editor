@@ -3,21 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:follow_the_leader/follow_the_leader.dart';
 import 'package:overlord/follow_the_leader.dart';
-import 'package:super_editor/src/core/document.dart';
-import 'package:super_editor/src/core/document_composer.dart';
-import 'package:super_editor/src/core/document_layout.dart';
-import 'package:super_editor/src/core/document_selection.dart';
-import 'package:super_editor/src/default_editor/document_gestures_touch_ios.dart';
-import 'package:super_editor/src/infrastructure/_logging.dart';
-import 'package:super_editor/src/infrastructure/content_layers.dart';
-import 'package:super_editor/src/infrastructure/documents/document_layers.dart';
-import 'package:super_editor/src/infrastructure/documents/selection_leader_document_layer.dart';
 import 'package:super_editor/src/infrastructure/flutter/flutter_scheduler.dart';
-import 'package:super_editor/src/infrastructure/multi_listenable_builder.dart';
 import 'package:super_editor/src/infrastructure/platforms/ios/selection_handles.dart';
-import 'package:super_editor/src/infrastructure/platforms/mobile_documents.dart';
 import 'package:super_editor/src/infrastructure/render_sliver_ext.dart';
-import 'package:super_editor/src/infrastructure/touch_controls.dart';
+import 'package:super_editor/super_editor.dart';
 import 'package:super_text_layout/super_text_layout.dart';
 
 /// An application overlay that displays an iOS-style toolbar.
@@ -438,21 +427,108 @@ class _IosToolbarFocalPointDocumentLayerState extends DocumentLayoutLayerState<I
   Rect? computeLayoutDataWithDocumentLayout(
       BuildContext contentLayersContext, BuildContext documentContext, DocumentLayout documentLayout) {
     final documentSelection = widget.selection.value;
+
     if (documentSelection == null) {
       return null;
     }
 
-    final selectedComponent = documentLayout.getComponentByNodeId(widget.selection.value!.extent.nodeId);
-    if (selectedComponent == null) {
+    DocumentComponent<StatefulWidget>? baseComponent;
+    DocumentComponent<StatefulWidget>? extendComponent;
+
+    try {
+      extendComponent = documentLayout.getComponentByNodeId(widget.selection.value!.extent.nodeId)!;
+      baseComponent = documentLayout.getComponentByNodeId(widget.selection.value!.base.nodeId)!;
+    } catch (e) {
+      baseComponent = documentLayout.getComponentByNodeId(widget.selection.value!.base.nodeId);
+    }
+
+    if (baseComponent == null && extendComponent == null) {
       // Assume that we're in a momentary transitive state where the document layout
       // just gained or lost a component. We expect this method to run again in a moment
       // to correct for this.
+
       return null;
     }
+
+    final baseElementMounted = baseComponent?.mounted ?? false;
+    final extentElementMounted = extendComponent?.mounted ?? false;
+
+    if (!baseElementMounted || !extentElementMounted) {
+      final screenHeight = (MediaQuery.sizeOf(documentContext).height);
+
+      final extendIndex = widget.document.getNodeIndexById(widget.selection.value!.extent.nodeId);
+      final baseIndex = widget.document.getNodeIndexById(widget.selection.value!.base.nodeId);
+
+      if (baseElementMounted) {
+        final isBaseTop = baseIndex > extendIndex;
+        switch (isBaseTop) {
+          case true:
+            final rect = documentLayout.getEdgeForPosition(
+              documentSelection.base,
+              insertScrollOffset: true,
+            )!;
+
+            return Rect.fromLTRB(rect.left, rect.top - screenHeight, rect.right, rect.bottom);
+          case false:
+            final rect = documentLayout.getEdgeForPosition(
+              documentSelection.base,
+              insertScrollOffset: true,
+            )!;
+
+            return Rect.fromLTRB(rect.left, rect.top, rect.right, rect.bottom);
+        }
+      } else if (extentElementMounted) {
+        final isExtentTop = extendIndex > baseIndex;
+        switch (isExtentTop) {
+          case true:
+            final rect = documentLayout.getEdgeForPosition(
+              documentSelection.extent,
+              insertScrollOffset: true,
+            )!;
+
+            return Rect.fromLTRB(rect.left, rect.top - screenHeight, rect.right, rect.bottom);
+          case false:
+            final rect = documentLayout.getEdgeForPosition(
+              documentSelection.extent,
+              insertScrollOffset: true,
+            )!;
+
+            return Rect.fromLTRB(rect.left, rect.top, rect.right, rect.bottom);
+        }
+      } else if (!baseElementMounted && !extentElementMounted) {
+        return null;
+      }
+
+      // switch (!extentElementMounted) {
+      //   case true:
+      //     final rect = documentLayout.getEdgeForPosition(
+      //       documentSelection.start,
+      //       insertScrollOffset: true,
+      //     )!;
+
+      //     final u = Rect.fromLTRB(rect.left, rect.top - screenHeight, rect.right, rect.bottom);
+
+      //     return u;
+      //   case false:
+      //     final rect = documentLayout.getEdgeForPosition(
+      //       documentSelection.end,
+      //       insertScrollOffset: true,
+      //     )!;
+      //     print('u: ');
+
+      //     return Rect.fromLTRB(rect.left, rect.top, rect.right, rect.bottom);
+
+      //   case null:
+      //     return null;
+      // }
+    }
+
+    // batuhankucuk
 
     return documentLayout.getRectForSelection(
       documentSelection.base,
       documentSelection.extent,
+      insertScrollOffset: true,
     );
   }
 
@@ -722,12 +798,12 @@ class IosControlsDocumentLayerState extends DocumentLayoutLayerState<IosHandlesD
     }
 
     final rectForSelection = widget.documentLayout.getRectForSelection(
-      position,
-      DocumentPosition(
-        nodeId: position.nodeId,
-        nodePosition: extentNodePosition,
-      ),
-    )!;
+        position,
+        DocumentPosition(
+          nodeId: position.nodeId,
+          nodePosition: extentNodePosition,
+        ),
+        insertScrollOffset: true)!;
 
     return Rect.fromLTWH(
       isExtentDownstream ? rectForSelection.left : rectForSelection.right,
@@ -751,7 +827,7 @@ class IosControlsDocumentLayerState extends DocumentLayoutLayerState<IosHandlesD
     }
 
     if (selection.isCollapsed) {
-      Rect caretRect = documentLayout.getEdgeForPosition(selection.extent)!;
+      Rect caretRect = documentLayout.getEdgeForPosition(selection.extent, insertScrollOffset: true)!;
 
       // Default caret width used by IOSCollapsedHandle.
       const caretWidth = 2;
@@ -795,6 +871,7 @@ class IosControlsDocumentLayerState extends DocumentLayoutLayerState<IosHandlesD
         expandedSelectionBounds: documentLayout.getRectForSelection(
           selection.base,
           selection.extent,
+          insertScrollOffset: true,
         ),
       );
     }
@@ -816,7 +893,7 @@ class IosControlsDocumentLayerState extends DocumentLayoutLayerState<IosHandlesD
       editorGesturesLog.finer("Not building overlay handles because there's no selection.");
       return const SizedBox.shrink();
     }
-
+// Batuhankucuk
     return Stack(
       clipBehavior: Clip.none,
       children: [

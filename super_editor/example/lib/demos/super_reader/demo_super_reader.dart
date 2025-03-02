@@ -1,8 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:super_editor/super_editor.dart';
-import 'package:super_editor_markdown/super_editor_markdown.dart';
 
 import 'example_document.dart';
 
@@ -20,27 +18,10 @@ class _SuperReaderDemoState extends State<SuperReaderDemo> {
   late MagnifierAndToolbarController _overlayController;
   late final SuperReaderIosControlsController _iosReaderControlsController;
 
-  bool initialized = false;
   @override
   void initState() {
     super.initState();
-
-    () async {
-      _document = await compute(
-          deserializeMarkdownToDocument,
-          """Benim adım ***Oben. Küçük*** de soyadım***dır***. ***Sikim*** de kutu kola **gibi*di*r**. Oben'in gözleri çakmak çakmaktır.
-
-لعديد من الملفات على بيانات في شكل نص أو
-
-# başlık nırada. ya da değil.
-""" *
-              10);
-
-      setState(() {
-        initialized = true;
-      });
-    }();
-
+    _document = createInitialDocument();
     _overlayController = MagnifierAndToolbarController();
     _iosReaderControlsController = SuperReaderIosControlsController(
       toolbarBuilder: _buildToolbar,
@@ -49,7 +30,6 @@ class _SuperReaderDemoState extends State<SuperReaderDemo> {
 
   @override
   void dispose() {
-    _selection.dispose();
     _iosReaderControlsController.dispose();
     super.dispose();
   }
@@ -147,52 +127,23 @@ class _SuperReaderDemoState extends State<SuperReaderDemo> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          print(_selection.value?.end);
-          final firstSentence = _document.first.asTextNode.text.sectences.last;
-          _selection.value = DocumentSelection(
-            base: DocumentPosition(
-              nodeId: _document.last.id,
-              nodePosition: TextNodePosition(offset: 0),
-            ),
-            extent: DocumentPosition(
-              nodeId: _document.last.id,
-              nodePosition: TextNodePosition(offset: 4),
-            ),
-          );
-        },
-        child: const Icon(Icons.select_all),
+    return SuperReaderIosControlsScope(
+      controller: _iosReaderControlsController,
+      child: SuperReader(
+        document: _document,
+        selection: _selection,
+        overlayController: _overlayController,
+        selectionLayerLinks: _selectionLayerLinks,
+        stylesheet: defaultStylesheet.copyWith(
+          addRulesAfter: [
+            taskStyles,
+          ],
+        ),
+        androidToolbarBuilder: (_) => AndroidTextEditingFloatingToolbar(
+          onCopyPressed: _copy,
+          onSelectAllPressed: _selectAll,
+        ),
       ),
-      body: initialized
-          ? SuperReaderIosControlsScope(
-              controller: _iosReaderControlsController,
-              child: SuperReader(
-                shrinkWrap: true,
-                onSentenceTapped: (nodeId, text, index) {
-                  if (nodeId != null) {
-                    SentenceSelection.selectSentence(nodeId, index);
-                  }
-                },
-                document: _document,
-                selection: _selection,
-                overlayController: _overlayController,
-                selectionLayerLinks: _selectionLayerLinks,
-                stylesheet: defaultStylesheet.copyWith(
-                  addRulesAfter: [
-                    taskStyles,
-                  ],
-                ),
-                androidToolbarBuilder: (_) => AndroidTextEditingFloatingToolbar(
-                  onCopyPressed: _copy,
-                  onSelectAllPressed: _selectAll,
-                ),
-              ),
-            )
-          : Center(
-              child: CircularProgressIndicator(),
-            ),
     );
   }
 

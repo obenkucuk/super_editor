@@ -134,6 +134,7 @@ class _MobileEditingIOSDemoState extends State<MobileEditingIOSDemo> with Single
   Widget _buildIosMagnifier(BuildContext context, Key magnifierKey, LeaderLink focalPoint, bool isVisible) {
     return Center(
       child: IOSFollowingMagnifier.roundedRectangle(
+        mainScrollController: ScrollController(),
         magnifierKey: magnifierKey,
         leaderLink: focalPoint,
         // The magnifier is centered with the focal point. Translate it so that it sits

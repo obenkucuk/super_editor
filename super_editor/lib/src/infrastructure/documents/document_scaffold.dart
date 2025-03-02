@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:super_editor/src/core/document_debug_paint.dart';
 import 'package:super_editor/src/default_editor/document_scrollable.dart';
-import 'package:super_editor/src/default_editor/layout_single_column/_layout.dart';
-import 'package:super_editor/src/default_editor/layout_single_column/_presenter.dart';
-import 'package:super_editor/src/infrastructure/content_layers.dart';
-import 'package:super_editor/src/infrastructure/documents/document_scroller.dart';
-import 'package:super_editor/src/infrastructure/flutter/build_context.dart';
-import 'package:super_editor/src/infrastructure/sliver_hybrid_stack.dart';
+import 'package:super_editor/super_editor.dart';
 
 /// A scaffold that combines pieces to create a scrolling single-column document, with
 /// gestures placed beneath the document.
@@ -21,8 +15,10 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
     required this.viewportDecorationBuilder,
     required this.gestureBuilder,
     this.textInputBuilder,
-    this.scrollController,
+    required this.mainScrollController,
     required this.autoScrollController,
+    required this.boxKey,
+    required this.document,
     required this.scroller,
     required this.presenter,
     required this.componentBuilders,
@@ -38,6 +34,10 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
   /// [GlobalKey] that's attached to the document layout.
   final GlobalKey documentLayoutKey;
 
+  final GlobalKey boxKey;
+
+  final Document document;
+
   /// Builder that creates a gesture interaction widget, which is displayed
   /// beneath the document, at the same size as the viewport.
   final Widget Function(BuildContext context, {required Widget child}) gestureBuilder;
@@ -52,7 +52,7 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
   /// Controls scrolling when this [DocumentScaffold] adds its own `Scrollable`, but
   /// doesn't provide scrolling control when this [DocumentScaffold] uses an ancestor
   /// `Scrollable`.
-  final ScrollController? scrollController;
+  final ScrollController mainScrollController;
 
   /// Controls auto-scrolling of the document's viewport.
   final AutoScrollController autoScrollController;
@@ -114,8 +114,9 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
     required Widget child,
   }) {
     return DocumentScrollable(
+      boxKey: widget.boxKey,
       autoScroller: widget.autoScrollController,
-      scrollController: widget.scrollController,
+      scrollController: widget.mainScrollController,
       scrollingMinimapId: widget.debugPaint.scrollingMinimapId,
       scroller: widget.scroller,
       shrinkWrap: widget.shrinkWrap,
@@ -136,6 +137,9 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
   Widget _buildDocumentLayout() {
     return ContentLayers(
       content: (onBuildScheduled) => SingleColumnDocumentLayout(
+        boxKey: widget.boxKey,
+        document: widget.document,
+        scrollController: widget.mainScrollController,
         key: widget.documentLayoutKey,
         presenter: widget.presenter,
         componentBuilders: widget.componentBuilders,

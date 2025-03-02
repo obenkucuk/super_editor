@@ -91,21 +91,124 @@ class _AndroidToolbarFocalPointDocumentLayerState
   Rect? computeLayoutDataWithDocumentLayout(
       BuildContext contentLayersContext, BuildContext documentContext, DocumentLayout documentLayout) {
     final documentSelection = widget.selection.value;
+
+    final padding = 108.0;
+
     if (documentSelection == null) {
       return null;
     }
 
-    final selectedComponent = documentLayout.getComponentByNodeId(widget.selection.value!.extent.nodeId);
-    if (selectedComponent == null) {
+    DocumentComponent<StatefulWidget>? baseComponent;
+    DocumentComponent<StatefulWidget>? extendComponent;
+
+    try {
+      extendComponent = documentLayout.getComponentByNodeId(widget.selection.value!.extent.nodeId)!;
+      baseComponent = documentLayout.getComponentByNodeId(widget.selection.value!.base.nodeId)!;
+    } catch (e) {
+      baseComponent = documentLayout.getComponentByNodeId(widget.selection.value!.base.nodeId);
+    }
+
+    // final extendBox = (extendComponent)?.context.findRenderObject() as RenderBox?;
+    // final extendOffset =
+    //     extendBox?.localToGlobal(Offset.zero, ancestor: documentLayout.boxKey.currentContext?.findRenderObject());
+
+    if (baseComponent == null && extendComponent == null) {
       // Assume that we're in a momentary transitive state where the document layout
       // just gained or lost a component. We expect this method to run again in a moment
       // to correct for this.
+
       return null;
     }
 
+    final baseElementMounted = baseComponent?.mounted ?? false;
+    final extentElementMounted = extendComponent?.mounted ?? false;
+
+    if (!baseElementMounted || !extentElementMounted) {
+      final screenHeight = (MediaQuery.sizeOf(documentContext).height);
+
+      final extendIndex = widget.document.getNodeIndexById(widget.selection.value!.extent.nodeId);
+      final baseIndex = widget.document.getNodeIndexById(widget.selection.value!.base.nodeId);
+
+      if (baseElementMounted) {
+        final isBaseTop = baseIndex > extendIndex;
+        switch (isBaseTop) {
+          case true:
+            print(1);
+
+            final rect = documentLayout.getEdgeForPosition(
+              documentSelection.base,
+              insertScrollOffset: true,
+            )!;
+
+            return Rect.fromLTRB(rect.left, rect.top - screenHeight, rect.right, rect.bottom);
+          case false:
+            print(2);
+            final rect = documentLayout.getEdgeForPosition(
+              documentSelection.base,
+              insertScrollOffset: true,
+            )!;
+
+            return Rect.fromLTRB(rect.left, rect.top, rect.right, rect.bottom);
+        }
+      } else if (extentElementMounted) {
+        final isExtentTop = extendIndex > baseIndex;
+        switch (isExtentTop) {
+          case true:
+            print(3);
+            final rect = documentLayout.getEdgeForPosition(
+              documentSelection.extent,
+              insertScrollOffset: true,
+            )!;
+
+            return Rect.fromLTRB(rect.left, rect.top + padding, rect.right, rect.bottom);
+          case false:
+            print(4);
+            final rect = documentLayout.getEdgeForPosition(
+              documentSelection.extent,
+              insertScrollOffset: true,
+            )!;
+
+            return Rect.fromLTRB(rect.left, rect.top, rect.right, rect.bottom);
+        }
+      } else if (!baseElementMounted && !extentElementMounted) {
+        return null;
+      }
+
+      // switch (!extentElementMounted) {
+      //   case true:
+      //     final rect = documentLayout.getEdgeForPosition(
+      //       documentSelection.start,
+      //       insertScrollOffset: true,
+      //     )!;
+
+      //     final u = Rect.fromLTRB(rect.left, rect.top - screenHeight, rect.right, rect.bottom);
+
+      //     return u;
+      //   case false:
+      //     final rect = documentLayout.getEdgeForPosition(
+      //       documentSelection.end,
+      //       insertScrollOffset: true,
+      //     )!;
+      //     print('u: ');
+
+      //     return Rect.fromLTRB(rect.left, rect.top, rect.right, rect.bottom);
+
+      //   case null:
+      //     return null;
+      // }
+    }
+
+    // batuhankucuk
+
+    // final extendBox = (extendComponent)?.context.findRenderObject() as RenderBox?;
+    // final extendOffset =
+    //     extendBox?.localToGlobal(Offset.zero, ancestor: documentLayout.boxKey.currentContext?.findRenderObject());
+
+    print(5);
     return documentLayout.getRectForSelection(
       documentSelection.base,
       documentSelection.extent,
+      insertScrollOffset: true,
     );
   }
 
@@ -114,7 +217,6 @@ class _AndroidToolbarFocalPointDocumentLayerState
     if (expandedSelectionBounds == null) {
       return const SizedBox();
     }
-
     return IgnorePointer(
       child: Stack(
         children: [
@@ -325,6 +427,7 @@ class AndroidControlsDocumentLayerState
   DocumentSelectionLayout? computeLayoutDataWithDocumentLayout(
       BuildContext contentLayersContext, BuildContext documentContext, DocumentLayout documentLayout) {
     final selection = widget.selection.value;
+
     if (selection == null) {
       return null;
     }
@@ -335,7 +438,10 @@ class AndroidControlsDocumentLayerState
     }
 
     if (selection.isCollapsed && !_controlsController!.shouldShowExpandedHandles.value) {
-      Rect caretRect = documentLayout.getEdgeForPosition(selection.extent)!;
+      Rect caretRect = documentLayout.getEdgeForPosition(
+        selection.extent,
+        insertScrollOffset: true,
+      )!;
 
       // Default caret width used by the Android caret.
       const caretWidth = 2;
@@ -371,14 +477,19 @@ class AndroidControlsDocumentLayerState
     } else {
       return DocumentSelectionLayout(
         upstream: documentLayout.getRectForPosition(
-          widget.document.selectUpstreamPosition(selection.base, selection.extent),
-        )!,
+              widget.document.selectUpstreamPosition(selection.base, selection.extent),
+              insertScrollOffset: true,
+            ) ??
+            Rect.zero,
         downstream: documentLayout.getRectForPosition(
-          widget.document.selectDownstreamPosition(selection.base, selection.extent),
-        )!,
+              widget.document.selectDownstreamPosition(selection.base, selection.extent),
+              insertScrollOffset: true,
+            ) ??
+            Rect.zero,
         expandedSelectionBounds: documentLayout.getRectForSelection(
           selection.base,
           selection.extent,
+          insertScrollOffset: true,
         ),
       );
     }

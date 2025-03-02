@@ -43,6 +43,14 @@ class DocumentLayoutEditable implements Editable {
 /// when the user drags from one (x,y) position to another (x,y) position on
 /// the screen.
 abstract class DocumentLayout {
+  double get scrollOffset;
+  GlobalKey get boxKey;
+
+  Document get document;
+
+  String get firstMountedNodeId;
+  String get lastMountedNodeId;
+
   /// Returns the [DocumentPosition] that corresponds to the given
   /// [layoutOffset], or [null] if the [layoutOffset] does not exist
   /// within a piece of document content.
@@ -64,7 +72,11 @@ abstract class DocumentLayout {
   /// by the offset and height of the content at the given [position].
   ///
   /// The edge of a piece of content is helpful for sizing and positioning a caret.
-  Rect? getEdgeForPosition(DocumentPosition position);
+  Rect? getEdgeForPosition(
+    DocumentPosition position, {
+    Offset initial = Offset.zero,
+    bool insertScrollOffset = false,
+  });
 
   /// Returns the bounding box around the given [position], within the associated
   /// component, or `null` if no corresponding component can be found, or
@@ -73,11 +85,12 @@ abstract class DocumentLayout {
   /// For example, given a document layout that contains a text component that
   /// says "Hello, world", calling `getRectForPosition()` for the third character
   /// in that text component would return a bounding box for the character "l".
-  Rect? getRectForPosition(DocumentPosition position);
+  Rect? getRectForPosition(DocumentPosition position, {bool insertScrollOffset = false});
 
   /// Returns a [Rect] that bounds the content selected between
   /// [basePosition] and [extentPosition].
-  Rect? getRectForSelection(DocumentPosition basePosition, DocumentPosition extentPosition);
+  Rect? getRectForSelection(DocumentPosition basePosition, DocumentPosition extentPosition,
+      {bool insertScrollOffset = false});
 
   /// Returns a [DocumentSelection] that begins near [baseOffset] and extends
   /// to [extentOffset], or [null] if no document content sits between the

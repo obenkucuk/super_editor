@@ -184,6 +184,7 @@ class TaskComponentBuilder implements ComponentBuilder {
       textAlignment: textDirection == TextDirection.ltr ? TextAlign.left : TextAlign.right,
       textStyleBuilder: noStyleBuilder,
       selectionColor: const Color(0x00000000),
+      sectionSelectionColor: const Color(0x00000000),
     );
   }
 
@@ -222,7 +223,9 @@ class TaskComponentViewModel extends SingleColumnLayoutComponentViewModel with T
     this.textDirection = TextDirection.ltr,
     this.textAlignment = TextAlign.left,
     this.selection,
+    this.sectionSelection,
     required this.selectionColor,
+    required this.sectionSelectionColor,
     this.highlightWhenEmpty = false,
     TextRange? composingRegion,
     bool showComposingRegionUnderline = false,
@@ -260,7 +263,11 @@ class TaskComponentViewModel extends SingleColumnLayoutComponentViewModel with T
   @override
   TextSelection? selection;
   @override
+  TextSelection? sectionSelection;
+  @override
   Color selectionColor;
+  @override
+  Color sectionSelectionColor;
   @override
   bool highlightWhenEmpty;
 
@@ -280,7 +287,9 @@ class TaskComponentViewModel extends SingleColumnLayoutComponentViewModel with T
       textDirection: textDirection,
       textAlignment: textAlignment,
       selection: selection,
+      sectionSelection: sectionSelection,
       selectionColor: selectionColor,
+      sectionSelectionColor: sectionSelectionColor,
       highlightWhenEmpty: highlightWhenEmpty,
       spellingErrorUnderlineStyle: spellingErrorUnderlineStyle,
       spellingErrors: List.from(spellingErrors),
@@ -303,7 +312,9 @@ class TaskComponentViewModel extends SingleColumnLayoutComponentViewModel with T
           textDirection == other.textDirection &&
           textAlignment == other.textAlignment &&
           selection == other.selection &&
+          sectionSelection == other.sectionSelection &&
           selectionColor == other.selectionColor &&
+          sectionSelectionColor == other.sectionSelectionColor &&
           highlightWhenEmpty == other.highlightWhenEmpty &&
           spellingErrorUnderlineStyle == other.spellingErrorUnderlineStyle &&
           const DeepCollectionEquality().equals(spellingErrors, other.spellingErrors) &&
@@ -321,7 +332,9 @@ class TaskComponentViewModel extends SingleColumnLayoutComponentViewModel with T
       textDirection.hashCode ^
       textAlignment.hashCode ^
       selection.hashCode ^
+      sectionSelection.hashCode ^
       selectionColor.hashCode ^
+      sectionSelectionColor.hashCode ^
       highlightWhenEmpty.hashCode ^
       spellingErrorUnderlineStyle.hashCode ^
       spellingErrors.hashCode ^
@@ -348,11 +361,9 @@ class TaskComponent extends StatefulWidget {
   const TaskComponent({
     Key? key,
     required this.viewModel,
-    this.nodeId,
     this.showDebugPaint = false,
   }) : super(key: key);
 
-  final String? nodeId;
   final TaskComponentViewModel viewModel;
   final bool showDebugPaint;
 
@@ -398,7 +409,13 @@ class _TaskComponentState extends State<TaskComponent> with ProxyDocumentCompone
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 4),
             child: Checkbox(
-              visualDensity: Theme.of(context).visualDensity,
+              visualDensity: Theme.of(context).visualDensity.copyWith(
+                    horizontal: VisualDensity.minimumDensity,
+                    vertical: VisualDensity.minimumDensity,
+                  ),
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(6)),
+              ),
               value: widget.viewModel.isComplete,
               onChanged: widget.viewModel.setComplete != null
                   ? (newValue) {
@@ -410,14 +427,15 @@ class _TaskComponentState extends State<TaskComponent> with ProxyDocumentCompone
           Expanded(
             child: TextComponent(
               key: _textKey,
-              nodeId: widget.nodeId,
               text: widget.viewModel.text,
               textDirection: widget.viewModel.textDirection,
               textAlign: widget.viewModel.textAlignment,
               textStyleBuilder: _computeStyles,
               inlineWidgetBuilders: widget.viewModel.inlineWidgetBuilders,
               textSelection: widget.viewModel.selection,
+              sectionSelection: widget.viewModel.sectionSelection,
               selectionColor: widget.viewModel.selectionColor,
+              sectionSelectionColor: widget.viewModel.sectionSelectionColor,
               highlightWhenEmpty: widget.viewModel.highlightWhenEmpty,
               underlines: widget.viewModel.createUnderlines(),
               showDebugPaint: widget.showDebugPaint,

@@ -85,11 +85,18 @@ class _SelectionLeadersDocumentLayerState
   DocumentSelectionLayout? computeLayoutDataWithDocumentLayout(
       BuildContext contentLayersContext, BuildContext documentContext, DocumentLayout documentLayout) {
     final documentSelection = widget.selection.value;
+
     if (documentSelection == null) {
       return null;
     }
 
-    final selectedComponent = documentLayout.getComponentByNodeId(widget.selection.value!.extent.nodeId);
+    DocumentComponent<StatefulWidget>? selectedComponent;
+
+    try {
+      selectedComponent = documentLayout.getComponentByNodeId(widget.selection.value!.extent.nodeId)!;
+    } catch (e) {
+      selectedComponent = documentLayout.getComponentByNodeId(widget.selection.value!.base.nodeId);
+    }
     if (selectedComponent == null) {
       // Assume that we're in a momentary transitive state where the document layout
       // just gained or lost a component. We expect this method ot run again in a moment
@@ -105,13 +112,16 @@ class _SelectionLeadersDocumentLayerState
       return DocumentSelectionLayout(
         upstream: documentLayout.getRectForPosition(
           widget.document.selectUpstreamPosition(documentSelection.base, documentSelection.extent),
+          insertScrollOffset: true,
         )!,
         downstream: documentLayout.getRectForPosition(
           widget.document.selectDownstreamPosition(documentSelection.base, documentSelection.extent),
+          insertScrollOffset: true,
         )!,
         expandedSelectionBounds: documentLayout.getRectForSelection(
           documentSelection.base,
           documentSelection.extent,
+          insertScrollOffset: true,
         ),
       );
     }

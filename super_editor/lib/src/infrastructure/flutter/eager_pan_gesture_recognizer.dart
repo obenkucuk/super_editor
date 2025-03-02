@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' hide DragGestureRecognizer;
+import 'package:flutter/widgets.dart';
 
 import 'package:super_editor/src/infrastructure/flutter/monodrag.dart';
 
@@ -15,7 +16,10 @@ class EagerPanGestureRecognizer extends DragGestureRecognizer {
     super.debugOwner,
     super.supportedDevices,
     super.allowedButtonsFilter,
+    this.scrollController,
   });
+
+  final ScrollController? scrollController;
 
   /// Allows to dynamically decide if the gesture should be accepted.
   bool Function()? shouldAccept;

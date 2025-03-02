@@ -36,8 +36,8 @@ class TextLayoutSelectionHighlight extends StatelessWidget {
   }
 }
 
-class TextSentenceSelectionHighlight extends StatelessWidget {
-  const TextSentenceSelectionHighlight({
+class TextLayoutSectionSelectionHighlight extends StatelessWidget {
+  const TextLayoutSectionSelectionHighlight({
     Key? key,
     required this.textLayout,
     required this.style,
@@ -53,7 +53,7 @@ class TextSentenceSelectionHighlight extends StatelessWidget {
     return LayoutBuilder(builder: (context, c) {
       return CustomPaint(
         size: Size(c.maxWidth, c.maxHeight),
-        painter: TextSentenceSelectionPainter(
+        painter: TextSectionSelectionPainter(
           textLayout: textLayout,
           selectionColor: style.color,
           borderRadius: style.borderRadius,
@@ -231,8 +231,8 @@ class TextSelectionPainter extends CustomPainter {
   }
 }
 
-class TextSentenceSelectionPainter extends CustomPainter {
-  TextSentenceSelectionPainter({
+class TextSectionSelectionPainter extends CustomPainter {
+  TextSectionSelectionPainter({
     required this.textLayout,
     required this.textSelection,
     this.borderRadius = BorderRadius.zero,
@@ -247,12 +247,7 @@ class TextSentenceSelectionPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (textLayout == null) {
-      // No layout is available yet. Nothing to paint.
-      return;
-    }
-    if (textSelection == null || textSelection == const TextSelection.collapsed(offset: -1)) {
-      // No selection to paint. Return.
+    if (textLayout == null || textSelection == null || textSelection == const TextSelection.collapsed(offset: -1)) {
       return;
     }
 
@@ -261,52 +256,59 @@ class TextSentenceSelectionPainter extends CustomPainter {
       boxHeightStyle: BoxHeightStyle.max,
     );
 
-    List<List<TextBox>> groupByB(List<TextBox> boxes) {
-      Map<double, List<TextBox>> grouped = {};
+    // Satır satır grupla
+    final rowGroups = _groupByB(selectionBoxes);
+    final rows = rowGroups.toList();
 
-      for (var box in boxes) {
-        grouped.putIfAbsent(box.bottom, () => []).add(box);
-      }
+    // Her satır için ayrı path oluştur
+    for (int i = 0; i < rows.length; i++) {
+      final rowBoxes = rows[i];
+      if (rowBoxes.isEmpty) continue;
 
-      return grouped.values.toList();
-    }
+      final firstBox = rowBoxes.first;
+      final lastBox = rowBoxes.last;
 
-    final mergedBoxes = groupByB(selectionBoxes).map((rowBoxes) {
-      return TextBox.fromLTRBD(rowBoxes.first.left, rowBoxes.first.top, rowBoxes.last.right, rowBoxes.first.bottom,
-          rowBoxes.first.direction);
-    });
+      final previousRow = i > 0 ? rows[i - 1] : null;
+      final nextRow = i < rows.length - 1 ? rows[i + 1] : null;
 
-    for (final box in mergedBoxes) {
-      final rawRect = box.toRect();
-      final rect = Rect.fromLTWH(
-        rawRect.left - 5,
-        (rawRect.top - selectionHighlightBoxVerticalExpansion),
-        rawRect.width + 10,
-        rawRect.height + (selectionHighlightBoxVerticalExpansion * 2),
+      // Köşe radiuslarını belirle
+      final topLeftRadius = previousRow == null || firstBox.left < previousRow.first.left ? 4.0 : 0.0;
+      final topRightRadius = previousRow == null || lastBox.right > previousRow.last.right ? 4.0 : 0.0;
+      final bottomLeftRadius = nextRow == null || firstBox.left < nextRow.first.left ? 4.0 : 0.0;
+      final bottomRightRadius = nextRow == null || lastBox.right > nextRow.last.right ? 4.0 : 0.0;
+
+      // Son satır için alt kısmına 4px ekle
+      final bottom = nextRow == null ? lastBox.bottom + 2 : lastBox.bottom;
+      final rect = Rect.fromLTRB(firstBox.left - 2, firstBox.top, lastBox.right + 2, bottom);
+
+      final rrect = RRect.fromRectAndCorners(
+        rect,
+        topLeft: topLeftRadius > 0 ? Radius.circular(topLeftRadius) : Radius.zero,
+        topRight: topRightRadius > 0 ? Radius.circular(topRightRadius) : Radius.zero,
+        bottomLeft: bottomLeftRadius > 0 ? Radius.circular(bottomLeftRadius) : Radius.zero,
+        bottomRight: bottomRightRadius > 0 ? Radius.circular(bottomRightRadius) : Radius.zero,
       );
-      final rrect = RRect.fromRectAndCorners(rect,
-          topLeft: borderRadius.topLeft,
-          topRight: borderRadius.topRight,
-          bottomLeft: borderRadius.bottomLeft,
-          bottomRight: borderRadius.bottomRight);
 
-      canvas.drawRRect(
-        // Note: If the rect has no width then we've selected an empty line. Give
-        //       that line a slight width for visibility.
-        rect.width > 0
-            ? rrect
-            : RRect.fromRectAndRadius(Rect.fromLTWH(rect.left, rect.top, 5, rect.height), Radius.zero),
-        _selectionPaint,
-      );
+      canvas.drawRRect(rrect, _selectionPaint);
     }
   }
 
   @override
-  bool shouldRepaint(TextSentenceSelectionPainter oldDelegate) {
+  bool shouldRepaint(TextSectionSelectionPainter oldDelegate) {
     return textLayout != oldDelegate.textLayout ||
         textSelection != oldDelegate.textSelection ||
         selectionColor != oldDelegate.selectionColor;
   }
+}
+
+List<List<TextBox>> _groupByB(List<TextBox> boxes) {
+  Map<double, List<TextBox>> grouped = {};
+
+  for (var box in boxes) {
+    grouped.putIfAbsent(box.bottom, () => []).add(box);
+  }
+
+  return grouped.values.toList();
 }
 
 /// How bigger the selection highlight box is than the natural selection box

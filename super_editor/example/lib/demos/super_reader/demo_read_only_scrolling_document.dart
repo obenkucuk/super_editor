@@ -64,6 +64,9 @@ class _ReadOnlyCustomScrollViewDemoState extends State<ReadOnlyCustomScrollViewD
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 96.0, vertical: 48.0),
       sliver: SingleColumnDocumentLayout(
+        document: _doc,
+        scrollController: ScrollController(),
+        boxKey: GlobalKey(),
         presenter: SingleColumnLayoutPresenter(
           document: _doc,
           componentBuilders: defaultComponentBuilders,

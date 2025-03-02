@@ -7,12 +7,15 @@ import 'package:super_editor/src/infrastructure/platforms/ios/colors.dart';
 class IOSTextEditingFloatingToolbar extends StatelessWidget {
   const IOSTextEditingFloatingToolbar({
     Key? key,
+    this.readOnly = false,
     this.floatingToolbarKey,
     required this.focalPoint,
     this.onCutPressed,
     this.onCopyPressed,
     this.onPastePressed,
   }) : super(key: key);
+
+  final bool readOnly;
 
   final Key? floatingToolbarKey;
 
@@ -47,7 +50,7 @@ class IOSTextEditingFloatingToolbar extends StatelessWidget {
             ? iOSToolbarDarkArrowInactiveColor
             : iOSToolbarLightArrowInactiveColor,
         children: [
-          if (onCutPressed != null)
+          if (onCutPressed != null && !readOnly)
             _buildButton(
               onPressed: onCutPressed!,
               title: 'Cut',
@@ -57,7 +60,7 @@ class IOSTextEditingFloatingToolbar extends StatelessWidget {
               onPressed: onCopyPressed!,
               title: 'Copy',
             ),
-          if (onPastePressed != null)
+          if (onPastePressed != null && !readOnly)
             _buildButton(
               onPressed: onPastePressed!,
               title: 'Paste',

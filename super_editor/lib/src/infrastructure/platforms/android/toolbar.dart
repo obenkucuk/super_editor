@@ -4,12 +4,15 @@ import 'package:super_editor/src/infrastructure/platforms/android/colors.dart';
 class AndroidTextEditingFloatingToolbar extends StatelessWidget {
   const AndroidTextEditingFloatingToolbar({
     Key? key,
+    this.readOnly = false,
     this.floatingToolbarKey,
     this.onCutPressed,
     this.onCopyPressed,
     this.onPastePressed,
     this.onSelectAllPressed,
   }) : super(key: key);
+
+  final bool readOnly;
 
   final Key? floatingToolbarKey;
 
@@ -37,7 +40,7 @@ class AndroidTextEditingFloatingToolbar extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (onCutPressed != null)
+            if (onCutPressed != null && !readOnly)
               _buildButton(
                 onPressed: onCutPressed!,
                 title: 'Cut',
@@ -47,7 +50,7 @@ class AndroidTextEditingFloatingToolbar extends StatelessWidget {
                 onPressed: onCopyPressed!,
                 title: 'Copy',
               ),
-            if (onPastePressed != null)
+            if (onPastePressed != null && !readOnly)
               _buildButton(
                 onPressed: onPastePressed!,
                 title: 'Paste',

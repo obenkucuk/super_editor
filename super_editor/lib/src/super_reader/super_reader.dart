@@ -1,5 +1,4 @@
 import 'package:attributed_text/attributed_text.dart';
-import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,7 +35,6 @@ import 'package:super_editor/src/infrastructure/platforms/ios/ios_document_contr
 import 'package:super_editor/src/infrastructure/platforms/ios/toolbar.dart';
 import 'package:super_editor/src/infrastructure/platforms/platform.dart';
 import 'package:super_editor/src/super_reader/tasks.dart';
-
 import '../infrastructure/platforms/mobile_documents.dart';
 import '../infrastructure/text_input.dart';
 import 'read_only_document_android_touch_interactor.dart';
@@ -45,92 +43,10 @@ import 'read_only_document_keyboard_interactor.dart';
 import 'read_only_document_mouse_interactor.dart';
 import 'reader_context.dart';
 
-class SentenceSelection extends Equatable {
-  const SentenceSelection({
-    required this.nodeId,
-    required this.sentences,
-    required this.text,
-    this.index,
-    this.wordSelection,
-  });
-
-  final String nodeId;
-  final List<({int index, String text})> sentences;
-  final String text;
-  final int? index;
-  final TextSelection? wordSelection;
-
-  SentenceSelection updateSentenceIndex({
-    int? index,
-  }) {
-    return SentenceSelection(
-      nodeId: nodeId,
-      sentences: sentences,
-      text: text,
-      index: index,
-      wordSelection: wordSelection,
-    );
-  }
-
-  SentenceSelection updateSelectedWord({
-    TextSelection? wordSelection,
-  }) {
-    return SentenceSelection(
-      nodeId: nodeId,
-      sentences: sentences,
-      text: text,
-      index: index,
-      wordSelection: wordSelection,
-    );
-  }
-
-  static final Map<String, ValueNotifier<SentenceSelection>> sentenceSelections = {};
-
-  static SentenceSelection? _selectedSentence;
-
-  static SentenceSelection? get selectedSentence => _selectedSentence;
-  static set selectedSentence(SentenceSelection? value) {
-    if (value == selectedSentence) {
-      return;
-    }
-    _selectedSentence = value;
-  }
-
-  static SentenceSelection? selectSentence(String nodeId, int index) {
-    final oldSelectedNodeId = selectedSentence?.nodeId;
-    if (oldSelectedNodeId != null && oldSelectedNodeId != nodeId) {
-      sentenceSelections[oldSelectedNodeId]?.value =
-          sentenceSelections[oldSelectedNodeId]!.value.updateSentenceIndex(index: null);
-    }
-    final notifier = sentenceSelections[nodeId];
-    if (notifier != null) {
-      notifier.value = notifier.value.updateSentenceIndex(index: index);
-
-      _selectedSentence = notifier.value;
-      return notifier.value;
-    }
-    return null;
-  }
-
-  TextSelection get getOffsetForSentence {
-    if (index == null) {
-      return const TextSelection.collapsed(offset: -1);
-    }
-
-    final start = text.indexOf(sentences.elementAt(index!).text);
-    final end = start + sentences.elementAt(index!).text.length;
-    return TextSelection(baseOffset: start, extentOffset: end);
-  }
-
-  @override
-  List<Object?> get props => [nodeId, sentences, index, text];
-}
-
 class SuperReader extends StatefulWidget {
   SuperReader({
     Key? key,
     this.focusNode,
-    this.onSentenceTapped,
     this.autofocus = false,
     this.tapRegionGroupId,
     required this.document,
@@ -161,11 +77,7 @@ class SuperReader extends StatefulWidget {
         componentBuilders = componentBuilders != null
             ? [...componentBuilders, const UnknownComponentBuilder()]
             : [...readOnlyDefaultComponentBuilders, const UnknownComponentBuilder()],
-        super(key: key) {
-    SuperReader.defaultSentenceTap = onSentenceTapped;
-  }
-
-  final void Function(String? nodeId, String text, int index)? onSentenceTapped;
+        super(key: key);
 
   final FocusNode? focusNode;
 
@@ -237,6 +149,8 @@ class SuperReader extends StatefulWidget {
   /// with the location and size of the document layout.
   final List<SuperReaderDocumentLayerBuilder> documentUnderlayBuilders;
 
+  final GlobalKey _boxKey = GlobalKey();
+
   /// Layers that are displayed on top of the document layout, aligned
   /// with the location and size of the document layout.
   final List<SuperReaderDocumentLayerBuilder> documentOverlayBuilders;
@@ -297,8 +211,6 @@ class SuperReader extends StatefulWidget {
   /// Whether the scroll view used by the reader should shrink-wrap its contents.
   /// Only used when reader is not inside an scrollable.
   final bool shrinkWrap;
-
-  static void Function(String? nodeId, String text, int index)? defaultSentenceTap;
 
   @override
   State<SuperReader> createState() => SuperReaderState();
@@ -361,20 +273,6 @@ class SuperReaderState extends State<SuperReader> {
     _createReaderContext();
 
     _createLayoutPresenter();
-
-    for (var node in widget.document) {
-      if (node is TextNode) {
-        final sentences = node.text.sectences;
-
-        final sentenceSelection = SentenceSelection(
-          nodeId: node.id,
-          sentences: sentences,
-          text: node.text.toPlainText(),
-        );
-
-        SentenceSelection.sentenceSelections[node.id] = ValueNotifier(sentenceSelection);
-      }
-    }
   }
 
   @override
@@ -412,15 +310,6 @@ class SuperReaderState extends State<SuperReader> {
     if (widget.focusNode == null) {
       // We are using our own private FocusNode. Dispose it.
       _focusNode.dispose();
-    }
-
-    SuperReader.defaultSentenceTap = null;
-
-    for (var node in widget.document) {
-      if (node is TextNode) {
-        final notifier = SentenceSelection.sentenceSelections.remove(node.id);
-        notifier?.dispose();
-      }
     }
 
     super.dispose();
@@ -510,11 +399,13 @@ class SuperReaderState extends State<SuperReader> {
           keyboardActions: widget.keyboardActions,
           autofocus: widget.autofocus,
           child: DocumentScaffold(
+            boxKey: widget._boxKey,
+            document: widget.document,
             viewportDecorationBuilder: _buildPlatformSpecificViewportDecorations,
             documentLayoutLink: _documentLayoutLink,
             documentLayoutKey: _docLayoutKey,
             gestureBuilder: _buildGestureInteractor,
-            scrollController: _scrollController,
+            mainScrollController: _scrollController,
             autoScrollController: _autoScrollController,
             scroller: _scroller,
             presenter: _docLayoutPresenter!,
@@ -587,6 +478,7 @@ class SuperReaderState extends State<SuperReader> {
             SuperReaderIosControlsScope.rootOf(context),
           ),
           child: SuperReaderIosMagnifierOverlayManager(
+            mainScrollController: _scrollController,
             child: child,
           ),
         );

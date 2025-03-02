@@ -14,11 +14,13 @@ import 'package:super_editor/src/default_editor/layout_single_column/layout_sing
 mixin SelectionAwareViewModelMixin on SingleColumnLayoutComponentViewModel {
   /// The selection within the node represented by this view model.
   DocumentNodeSelection? selection;
+  DocumentNodeSelection? sectionSelection;
 
   /// The color to be applied to the selection.
   ///
   /// During the styling pass, this color is set according to the [SelectionStyles] used.
   Color selectionColor = Colors.transparent;
+  Color sectionSelectionColor = Colors.transparent;
 
   @override
   bool operator ==(Object other) =>
@@ -28,8 +30,10 @@ mixin SelectionAwareViewModelMixin on SingleColumnLayoutComponentViewModel {
           runtimeType == other.runtimeType &&
           nodeId == other.nodeId &&
           selection == other.selection &&
+          sectionSelection == other.sectionSelection &&
           selectionColor == other.selectionColor;
 
   @override
-  int get hashCode => super.hashCode ^ nodeId.hashCode ^ selection.hashCode ^ selectionColor.hashCode;
+  int get hashCode =>
+      super.hashCode ^ nodeId.hashCode ^ selection.hashCode ^ sectionSelection.hashCode ^ selectionColor.hashCode;
 }

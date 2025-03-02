@@ -1088,9 +1088,11 @@ class SuperReaderIosMagnifierOverlayManager extends StatefulWidget {
   const SuperReaderIosMagnifierOverlayManager({
     super.key,
     this.child,
+    required this.mainScrollController,
   });
 
   final Widget? child;
+  final ScrollController mainScrollController;
 
   @override
   State<SuperReaderIosMagnifierOverlayManager> createState() => SuperReaderIosMagnifierOverlayManagerState();
@@ -1162,6 +1164,7 @@ class SuperReaderIosMagnifierOverlayManagerState extends State<SuperReaderIosMag
 
     return IOSFollowingMagnifier.roundedRectangle(
       magnifierKey: magnifierKey,
+      mainScrollController: widget.mainScrollController,
       show: visible,
       leaderLink: magnifierFocalPoint,
       // The magnifier is centered with the focal point. Translate it so that it sits

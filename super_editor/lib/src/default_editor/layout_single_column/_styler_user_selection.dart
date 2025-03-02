@@ -36,6 +36,7 @@ class SingleColumnLayoutSelectionStyler extends SingleColumnLayoutStylePhase {
 
   final Document _document;
   final ValueListenable<DocumentSelection?> _selection;
+  ValueListenable<DocumentSelection?> get selection => _selection;
 
   SelectionStyles _selectionStyles;
   set selectionStyles(SelectionStyles selectionStyles) {
@@ -337,5 +338,326 @@ class DocumentNodeSelection<SelectionType extends NodeSelection> {
   @override
   String toString() {
     return '[DocumentNodeSelection] - node: "$nodeId", selection: ($nodeSelection)';
+  }
+}
+
+///
+///
+///
+///
+///
+///
+//
+///
+///
+///
+///
+///
+///
+/////
+///
+///
+///
+///
+///
+/////
+///
+///
+///
+///
+///
+/////
+///
+///
+///
+///
+///
+/////
+///
+///
+///
+///
+///
+/////
+///
+///
+///
+///
+///
+/////
+///
+///
+///
+///
+///
+/////
+///
+///
+///
+///
+///
+//
+
+class SingleColumnLayoutSectionSelectionStyler extends SingleColumnLayoutStylePhase {
+  SingleColumnLayoutSectionSelectionStyler({
+    required Document document,
+    required ValueListenable<DocumentSelection?> sectionSelection,
+    required SelectionStyles selectionStyles,
+    SelectedTextColorStrategy? selectedTextColorStrategy,
+  })  : _document = document,
+        _sectionSelection = sectionSelection,
+        _sectionSelectionStyles = selectionStyles,
+        _selectedTextColorStrategy = selectedTextColorStrategy {
+    // Our styles need to be re-applied whenever the document selection changes.
+    _sectionSelection.addListener(markDirty);
+  }
+
+  @override
+  void dispose() {
+    _sectionSelection.removeListener(markDirty);
+    super.dispose();
+  }
+
+  final Document _document;
+  final ValueListenable<DocumentSelection?> _sectionSelection;
+
+  SelectionStyles _sectionSelectionStyles;
+  set selectionStyles(SelectionStyles selectionStyles) {
+    if (selectionStyles == _sectionSelectionStyles) {
+      return;
+    }
+
+    _sectionSelectionStyles = selectionStyles;
+    markDirty();
+  }
+
+  SelectedTextColorStrategy? _selectedTextColorStrategy;
+  set selectedTextColorStrategy(SelectedTextColorStrategy? strategy) {
+    if (strategy == _selectedTextColorStrategy) {
+      return;
+    }
+
+    _selectedTextColorStrategy = strategy;
+    markDirty();
+  }
+
+  bool _shouldDocumentShowCaret = false;
+  set shouldDocumentShowCaret(bool newValue) {
+    if (newValue == _shouldDocumentShowCaret) {
+      return;
+    }
+
+    _shouldDocumentShowCaret = newValue;
+    editorStyleLog.fine("Change to 'document should show caret': $_shouldDocumentShowCaret");
+    markDirty();
+  }
+
+  @override
+  SingleColumnLayoutViewModel style(Document document, SingleColumnLayoutViewModel viewModel) {
+    editorStyleLog.info("(Re)calculating selection view model for document layout");
+    editorStyleLog.fine("Applying selection to components: ${_sectionSelection.value}");
+    return SingleColumnLayoutViewModel(
+      padding: viewModel.padding,
+      componentViewModels: [
+        for (final previousViewModel in viewModel.componentViewModels) //
+          _applySelection(previousViewModel.copy()),
+      ],
+    );
+  }
+
+  SingleColumnLayoutComponentViewModel _applySelection(SingleColumnLayoutComponentViewModel viewModel) {
+    final documentSelection = _sectionSelection.value;
+    final node = _document.getNodeById(viewModel.nodeId)!;
+
+    DocumentNodeSelection? nodeSelection;
+    if (documentSelection != null) {
+      late List<DocumentNode> selectedNodes;
+      try {
+        selectedNodes = _document.getNodesInside(
+          documentSelection.base,
+          documentSelection.extent,
+        );
+      } catch (exception) {
+        // This situation can happen in the moment between a document change and
+        // a corresponding selection change. For example: deleting an image and
+        // replacing it with an empty paragraph. Between the doc change and the
+        // selection change, the old image selection is applied to the new paragraph.
+        // This results in an exception.
+        //
+        // TODO: introduce a unified event ledger that combines related behaviors
+        //       into atomic transactions (#423)
+        selectedNodes = [];
+      }
+      nodeSelection =
+          _computeNodeSelection(documentSelection: documentSelection, selectedNodes: selectedNodes, node: node);
+    }
+
+    editorStyleLog.fine("Node selection (${node.id}): $nodeSelection");
+    if (node is TextNode) {
+      final textSelection = nodeSelection == null || nodeSelection.nodeSelection is! TextSelection
+          ? null
+          : nodeSelection.nodeSelection as TextSelection;
+      if (nodeSelection != null && nodeSelection.nodeSelection is! TextSelection) {
+        editorStyleLog.shout(
+            'ERROR: Building a paragraph component but the selection is not a TextSelection. Node: ${node.id}, Selection: ${nodeSelection.nodeSelection}');
+      }
+      final showCaret = _shouldDocumentShowCaret && nodeSelection != null ? nodeSelection.isExtent : false;
+      editorStyleLog.fine("Showing caret? $showCaret");
+      final highlightWhenEmpty = nodeSelection == null
+          ? false
+          : nodeSelection.highlightWhenEmpty && _sectionSelectionStyles.highlightEmptyTextBlocks;
+
+      editorStyleLog.finer(' - ${node.id}: $nodeSelection');
+      if (showCaret) {
+        editorStyleLog.finer('   - ^ showing caret');
+      }
+
+      editorStyleLog.finer(' - building a paragraph with selection:');
+      editorStyleLog.finer('   - base: ${textSelection?.base}');
+      editorStyleLog.finer('   - extent: ${textSelection?.extent}');
+
+      if (viewModel is TextComponentViewModel) {
+        final componentTextColor = viewModel.textStyleBuilder({}).color;
+
+        final textWithSelectionAttributions = textSelection != null &&
+                !textSelection.isCollapsed &&
+                _selectedTextColorStrategy != null &&
+                componentTextColor != null
+            ? (viewModel.text.copyText(0)
+              ..addAttribution(
+                ColorAttribution(_selectedTextColorStrategy!(
+                  originalTextColor: componentTextColor,
+                  selectionHighlightColor: _sectionSelectionStyles.selectionColor,
+                )),
+                SpanRange(textSelection.start, textSelection.end - 1),
+                // The selected range might already have a color attribution. We want to override it
+                // with the selected text color.
+                overwriteConflictingSpans: true,
+              ))
+            : viewModel.text;
+
+        viewModel
+          ..text = textWithSelectionAttributions
+          ..sectionSelection = textSelection
+          ..sectionSelectionColor = _sectionSelectionStyles.selectionColor
+          ..highlightWhenEmpty = highlightWhenEmpty;
+      }
+    }
+    if (viewModel is SelectionAwareViewModelMixin) {
+      viewModel
+        ..sectionSelection = nodeSelection
+        ..sectionSelectionColor = _sectionSelectionStyles.selectionColor;
+    }
+
+    return viewModel;
+  }
+
+  /// Computes the [DocumentNodeSelection] for the individual `nodeId` based on
+  /// the total list of selected nodes.
+  DocumentNodeSelection? _computeNodeSelection({
+    required DocumentSelection? documentSelection,
+    required List<DocumentNode> selectedNodes,
+    required DocumentNode node,
+  }) {
+    if (documentSelection == null) {
+      return null;
+    }
+
+    editorStyleLog.finer('_computeNodeSelection(): ${node.id}');
+    editorStyleLog.finer(' - base: ${documentSelection.base.nodeId}');
+    editorStyleLog.finer(' - extent: ${documentSelection.extent.nodeId}');
+
+    if (documentSelection.base.nodeId == documentSelection.extent.nodeId) {
+      editorStyleLog.finer(' - selection is within 1 node.');
+      if (documentSelection.base.nodeId != node.id) {
+        // Only 1 node is selected and its not the node we're interested in. Return.
+        editorStyleLog.finer(' - this node is not selected. Returning null.');
+        return null;
+      }
+
+      editorStyleLog.finer(' - this node has the selection');
+      final baseNodePosition = documentSelection.base.nodePosition;
+      final extentNodePosition = documentSelection.extent.nodePosition;
+      late NodeSelection? nodeSelection;
+      try {
+        nodeSelection = node.computeSelection(base: baseNodePosition, extent: extentNodePosition);
+      } catch (exception) {
+        // This situation can happen in the moment between a document change and
+        // a corresponding selection change. For example: deleting an image and
+        // replacing it with an empty paragraph. Between the doc change and the
+        // selection change, the old image selection is applied to the new paragraph.
+        // This results in an exception.
+        //
+        // TODO: introduce a unified event ledger that combines related behaviors
+        //       into atomic transactions (#423)
+        return null;
+      }
+      editorStyleLog.finer(' - node selection: $nodeSelection');
+
+      return DocumentNodeSelection(
+        nodeId: node.id,
+        nodeSelection: nodeSelection,
+        isBase: true,
+        isExtent: true,
+      );
+    } else {
+      // Log all the selected nodes.
+      editorStyleLog.finer(' - selection contains multiple nodes:');
+      for (final node in selectedNodes) {
+        editorStyleLog.finer('   - ${node.id}');
+      }
+
+      if (selectedNodes.firstWhereOrNull((selectedNode) => selectedNode.id == node.id) == null) {
+        // The document selection does not contain the node we're interested in. Return.
+        editorStyleLog.finer(' - this node is not in the selection');
+        return null;
+      }
+
+      if (selectedNodes.first.id == node.id) {
+        editorStyleLog.finer(' - this is the first node in the selection');
+        // Multiple nodes are selected and the node that we're interested in
+        // is the top node in that selection. Therefore, this node is
+        // selected from a position down to its bottom.
+        final isBase = node.id == documentSelection.base.nodeId;
+        return DocumentNodeSelection(
+          nodeId: node.id,
+          nodeSelection: node.computeSelection(
+            base: isBase ? documentSelection.base.nodePosition : node.endPosition,
+            extent: isBase ? node.endPosition : documentSelection.extent.nodePosition,
+          ),
+          isBase: isBase,
+          isExtent: !isBase,
+          highlightWhenEmpty: isBase,
+        );
+      } else if (selectedNodes.last.id == node.id) {
+        editorStyleLog.finer(' - this is the last node in the selection');
+        // Multiple nodes are selected and the node that we're interested in
+        // is the bottom node in that selection. Therefore, this node is
+        // selected from the beginning down to some position.
+        final isBase = node.id == documentSelection.base.nodeId;
+        return DocumentNodeSelection(
+          nodeId: node.id,
+          nodeSelection: node.computeSelection(
+            base: isBase ? node.beginningPosition : node.beginningPosition,
+            extent: isBase ? documentSelection.base.nodePosition : documentSelection.extent.nodePosition,
+          ),
+          isBase: isBase,
+          isExtent: !isBase,
+          highlightWhenEmpty: isBase,
+        );
+      } else {
+        editorStyleLog.finer(' - this node is fully selected within the selection');
+        // Multiple nodes are selected and this node is neither the top
+        // or the bottom node, therefore this entire node is selected.
+        return DocumentNodeSelection(
+          nodeId: node.id,
+          nodeSelection: node.computeSelection(
+            base: node.beginningPosition,
+            extent: node.endPosition,
+          ),
+          highlightWhenEmpty: true,
+        );
+      }
+    }
   }
 }

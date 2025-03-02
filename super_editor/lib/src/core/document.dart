@@ -26,6 +26,10 @@ abstract class Document implements Iterable<DocumentNode> {
   @override
   bool get isEmpty;
 
+  void addToVisibleNodeIds(String nodeId);
+  void removeFromVisibleNodeIds(String nodeId);
+  void clearVisibleNodeIds();
+
   /// Returns the first [DocumentNode] in this [Document], or `null` if this
   /// [Document] is empty.
   DocumentNode? get firstOrNull;

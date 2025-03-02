@@ -54,6 +54,7 @@ class DocumentMouseInteractor extends StatefulWidget {
     required this.autoScroller,
     required this.fillViewport,
     this.showDebugPaint = false,
+    this.mainScrollController,
     required this.child,
   }) : super(key: key);
 
@@ -64,6 +65,7 @@ class DocumentMouseInteractor extends StatefulWidget {
   final DocumentLayoutResolver getDocumentLayout;
   final Stream<DocumentSelectionChange> selectionChanges;
   final ValueListenable<DocumentSelection?> selectionNotifier;
+  final ScrollController? mainScrollController;
 
   /// Optional list of handlers that respond to taps on content, e.g., opening
   /// a link when the user taps on text with a link attribution.
@@ -299,10 +301,10 @@ class _DocumentMouseInteractorState extends State<DocumentMouseInteractor> with 
       return;
     }
 
-    final tappedComponent = _docLayout.getComponentByNodeId(docPosition.nodeId)!;
+    final tappedComponent = _docLayout.getComponentByNodeId(docPosition.nodeId);
     final expandSelection = _isShiftPressed && _currentSelection != null;
 
-    if (!tappedComponent.isVisualSelectionSupported()) {
+    if (tappedComponent != null && !tappedComponent.isVisualSelectionSupported()) {
       _moveToNearestSelectableComponent(
         docPosition.nodeId,
         tappedComponent,
@@ -566,19 +568,29 @@ class _DocumentMouseInteractorState extends State<DocumentMouseInteractor> with 
     _focusNode.requestFocus();
   }
 
+  Offset? _cachedLastPanPosition;
   void _onPanUpdate(DragUpdateDetails details) {
-    editorGesturesLog
-        .info("Pan update on document, global offset: ${details.globalPosition}, device: $_panGestureDevice");
+    if (_offsetsReachDebounce(details.globalPosition, _cachedLastPanPosition, debounce: 9)) {
+      // a++;
+      // print('a: $a');
 
-    setState(() {
-      _dragEndGlobal = details.globalPosition;
+      editorGesturesLog
+          .info("Pan update on document, global offset: ${details.globalPosition}, device: $_panGestureDevice");
 
-      _updateDragSelection();
+      setState(() {
+        _dragEndGlobal = details.globalPosition;
 
-      widget.autoScroller.setGlobalAutoScrollRegion(
-        Rect.fromLTWH(_dragEndGlobal!.dx, _dragEndGlobal!.dy, 1, 1),
-      );
-    });
+        _updateDragSelection();
+
+        widget.autoScroller.setGlobalAutoScrollRegion(
+          Rect.fromLTWH(_dragEndGlobal!.dx, _dragEndGlobal!.dy, 1, 1),
+        );
+      });
+
+      _cachedLastPanPosition = details.globalPosition;
+
+      return;
+    }
   }
 
   void _onPanEnd(DragEndDetails details) {
@@ -749,9 +761,27 @@ Updating drag selection:
     }
   }
 
+  Offset? _cachedLastMousePosition;
+
+  // int a = 0;
+  // int b = 0;
+
+  //  genel olarak mouse altında kalan alana göre mouse imleci değiştirilir
   void _onMouseMove(PointerHoverEvent event) {
-    _updateMouseCursor(event.position);
-    _lastHoverOffset = event.position;
+    if (_offsetsReachDebounce(event.position, _cachedLastMousePosition)) {
+      // a++;
+      // print('a: $a');
+
+      _cachedLastMousePosition = event.position;
+      _lastHoverOffset = event.position;
+
+      _updateMouseCursor(event.position);
+
+      return;
+    }
+
+    // b++;
+    // print('b: $b');
   }
 
   void _updateMouseCursorAtLatestOffset() {
@@ -785,6 +815,7 @@ Updating drag selection:
   @override
   Widget build(BuildContext context) {
     return SliverHybridStack(
+      mainScrollController: widget.mainScrollController,
       fillViewport: widget.fillViewport,
       children: [
         Listener(
@@ -878,4 +909,18 @@ class DragRectanglePainter extends CustomPainter {
   bool shouldRepaint(DragRectanglePainter oldDelegate) {
     return oldDelegate.selectionRect != selectionRect;
   }
+}
+
+bool _offsetsReachDebounce(Offset? a, Offset? b, {double debounce = 16}) {
+  // return true;
+  // if ((a.dx - b.dx).abs() > debounce || (a.dy - b.dy).abs() > debounce) {
+  //   return true;
+  // }
+
+  // return false;
+
+  if (a == null || b == null) {
+    return true;
+  }
+  return (a - b).distanceSquared > debounce;
 }

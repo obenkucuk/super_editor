@@ -703,10 +703,9 @@ class _ReadOnlyAndroidDocumentTouchInteractorState extends State<ReadOnlyAndroid
       _globalDragOffset = details.globalPosition;
 
       final fingerDragDelta = _globalDragOffset! - _globalStartDragOffset!;
-      final scrollDelta = _dragStartScrollOffset! - scrollPosition.pixels;
       final fingerDocumentOffset = _docLayout.getDocumentOffsetFromAncestorOffset(details.globalPosition);
       final fingerDocumentPosition = _docLayout.getDocumentPositionNearestToOffset(
-        _startDragPositionOffset! + fingerDragDelta - Offset(0, scrollDelta),
+        _startDragPositionOffset! + fingerDragDelta,
       );
       _longPressStrategy!.onLongPressDragUpdate(fingerDocumentOffset, fingerDocumentPosition);
       return;
@@ -928,11 +927,26 @@ class _ReadOnlyAndroidDocumentTouchInteractorState extends State<ReadOnlyAndroid
     }
 
     // Calculate the new rectangles for the upstream and downstream handles.
-    final baseHandleRect = _docLayout.getRectForPosition(selection.base)!;
-    final extentHandleRect = _docLayout.getRectForPosition(selection.extent)!;
+    Rect? baseHandleRect;
+    Rect? extentHandleRect;
+
+    final baseRect = _docLayout.getRectForPosition(selection.base);
+    final extentRect = _docLayout.getRectForPosition(selection.extent);
+
+    if (baseRect != null && extentRect != null) {
+      baseHandleRect = baseRect;
+      extentHandleRect = extentRect;
+    } else if (baseRect != null) {
+      baseHandleRect = baseRect;
+      extentHandleRect = baseRect;
+    } else if (extentRect != null) {
+      baseHandleRect = extentRect;
+      extentHandleRect = extentRect;
+    }
+
     final affinity = widget.document.getAffinityBetween(base: selection.base, extent: selection.extent);
-    late Rect upstreamHandleRect = affinity == TextAffinity.downstream ? baseHandleRect : extentHandleRect;
-    late Rect downstreamHandleRect = affinity == TextAffinity.downstream ? extentHandleRect : baseHandleRect;
+    late Rect upstreamHandleRect = affinity == TextAffinity.downstream ? baseHandleRect! : extentHandleRect!;
+    late Rect downstreamHandleRect = affinity == TextAffinity.downstream ? extentHandleRect! : baseHandleRect!;
 
     _editingController
       ..removeCaret()
@@ -960,20 +974,48 @@ class _ReadOnlyAndroidDocumentTouchInteractorState extends State<ReadOnlyAndroid
 
     // TODO: The following behavior looks like its calculating a bounding box. Should we use
     //       getRectForSelection instead?
-    final baseRectInDoc = _docLayout.getRectForPosition(selection.base)!;
-    final extentRectInDoc = _docLayout.getRectForPosition(selection.extent)!;
-    final selectionRectInDoc = Rect.fromPoints(
-      Offset(
-        min(baseRectInDoc.left, extentRectInDoc.left),
-        min(baseRectInDoc.top, extentRectInDoc.top),
-      ),
-      Offset(
-        max(baseRectInDoc.right, extentRectInDoc.right),
-        max(baseRectInDoc.bottom, extentRectInDoc.bottom),
-      ),
-    );
+    final baseRectInDoc = _docLayout.getRectForPosition(selection.base);
+    final extentRectInDoc = _docLayout.getRectForPosition(selection.extent);
+    Rect? selectionRectInDoc;
+    if (baseRectInDoc != null && extentRectInDoc != null) {
+      selectionRectInDoc = Rect.fromPoints(
+        Offset(
+          min(baseRectInDoc.left, extentRectInDoc.left),
+          min(baseRectInDoc.top, extentRectInDoc.top),
+        ),
+        Offset(
+          max(baseRectInDoc.right, extentRectInDoc.right),
+          max(baseRectInDoc.bottom, extentRectInDoc.bottom),
+        ),
+      );
+    } else if (baseRectInDoc != null) {
+      selectionRectInDoc = Rect.fromPoints(
+        Offset(
+          baseRectInDoc.left,
+          baseRectInDoc.top,
+        ),
+        Offset(
+          baseRectInDoc.right,
+          baseRectInDoc.bottom,
+        ),
+      );
+    } else if (extentRectInDoc != null) {
+      selectionRectInDoc = Rect.fromPoints(
+        Offset(
+          extentRectInDoc.left,
+          extentRectInDoc.top,
+        ),
+        Offset(
+          extentRectInDoc.right,
+          extentRectInDoc.bottom,
+        ),
+      );
+    } else {
+      selectionRectInDoc = Rect.largest;
+    }
+
     selectionRect = Rect.fromPoints(
-      _docLayout.getGlobalOffsetFromDocumentOffset(selectionRectInDoc.topLeft),
+      _docLayout.getGlobalOffsetFromDocumentOffset(selectionRectInDoc!.topLeft),
       _docLayout.getGlobalOffsetFromDocumentOffset(selectionRectInDoc.bottomRight),
     );
 

@@ -18,7 +18,6 @@ final _log = attributionsLog;
 /// is exclusively intended for visual text styles.
 // TODO: there is a mixture of mutable and immutable behavior in this class.
 //       Pick one or the other, or offer 2 classes: mutable and immutable (#113)
-
 class AttributedText {
   /// The default character that's inserted in place of placeholders when converting
   /// an [AttributedText] to plain text.
@@ -87,18 +86,6 @@ class AttributedText {
 
       _textWithPlaceholders = buffer.toString();
     }
-
-    sectences = _sectences;
-  }
-
-  late final List<({int index, String text})> sectences;
-
-  List<({int index, String text})> get _sectences {
-    final sentenceTexts = toPlainText().split(RegExp(r'(?<=[.!?])\s+'));
-
-    return sentenceTexts.mapIndexed((index, text) {
-      return (index: index, text: text);
-    }).toList();
   }
 
   void _validatePlaceholderIndices() {
@@ -434,16 +421,20 @@ class AttributedText {
     final textEndCopyOffset =
         (endOffset ?? length) - placeholdersBeforeStartOffset.length - placeholdersAfterStartBeforeEndOffset.length;
 
+    // The span marker offsets are based on the text with placeholders, so we need
+    // to copy the text with placeholders to ensure the span markers are correct.
+    final textWithPlaceholders = toPlainText();
+
     // Note: -1 because copyText() uses an exclusive `start` and `end` but
     // _copyAttributionRegion() uses an inclusive `start` and `end`.
-    final startCopyOffset = startOffset < _text.length ? startOffset : _text.length - 1;
+    final startCopyOffset = startOffset < textWithPlaceholders.length ? startOffset : textWithPlaceholders.length - 1;
     int endCopyOffset;
     if (endOffset == startOffset) {
       endCopyOffset = startCopyOffset;
     } else if (endOffset != null) {
       endCopyOffset = endOffset - 1;
     } else {
-      endCopyOffset = _text.length - 1;
+      endCopyOffset = textWithPlaceholders.length - 1;
     }
     _log.fine('offsets, start: $startCopyOffset, end: $endCopyOffset');
 

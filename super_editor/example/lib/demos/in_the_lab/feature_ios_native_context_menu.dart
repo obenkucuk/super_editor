@@ -14,7 +14,9 @@ import 'package:super_editor/super_editor.dart';
 /// using their native iOS toolbar. For that reason, Super Editor makes it possible
 /// to show the native iOS toolbar.
 class NativeIosContextMenuFeatureDemo extends StatefulWidget {
-  const NativeIosContextMenuFeatureDemo({super.key});
+  const NativeIosContextMenuFeatureDemo({super.key, this.readOnly = false});
+
+  final bool readOnly;
 
   @override
   State<NativeIosContextMenuFeatureDemo> createState() => _NativeIosContextMenuFeatureDemoState();
@@ -133,6 +135,7 @@ class _NativeIosContextMenuFeatureDemoState extends State<NativeIosContextMenuFe
       focalPoint,
       _commonEditorOperations,
       SuperEditorIosControlsScope.rootOf(context),
+      widget.readOnly,
     );
   }
 
