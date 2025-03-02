@@ -2,6 +2,7 @@ library super_editor;
 
 export 'package:attributed_text/attributed_text.dart';
 export 'package:super_text_layout/src/caret_layer.dart';
+export 'package:super_editor_markdown/super_editor_markdown.dart';
 
 // Fundamental document abstractions
 export 'src/core/document.dart';
