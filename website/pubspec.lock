@@ -37,10 +37,10 @@ packages:
     dependency: transitive
     description:
       name: attributed_text
-      sha256: fb65cf441784612544eda4d5df7a3caad56e7f673c68bf1d48d9048228375189
+      sha256: "9d8bdc6e54387f31e52d2dcc3d93d656072582a44bcaa855c9ea8b3b2fa7abd3"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.0"
+    version: "0.4.4"
   boolean_selector:
     dependency: transitive
     description:
@@ -139,6 +139,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.24"
+  flutter_test_runners:
+    dependency: transitive
+    description:
+      name: flutter_test_runners
+      sha256: cc575117ed66a79185a26995399d7048341517a1bd21188cb43753739627832d
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.4"
   flutter_web_plugins:
     dependency: "direct main"
     description: flutter
@@ -443,14 +451,22 @@ packages:
       path: "../super_editor"
       relative: true
     source: path
-    version: "0.3.0-dev.11"
+    version: "0.3.0-dev.19"
+  super_keyboard:
+    dependency: transitive
+    description:
+      name: super_keyboard
+      sha256: c8e303cd7bc1fc62732213f0f2660273a078be23eae7a4219d0ab3dd0b0ccb9a
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   super_text_layout:
     dependency: "direct main"
     description:
       path: "../super_text_layout"
       relative: true
     source: path
-    version: "0.1.17"
+    version: "0.1.18"
   term_glyph:
     dependency: transitive
     description:
@@ -620,5 +636,5 @@ packages:
     source: hosted
     version: "3.1.2"
 sdks:
-  dart: ">=3.4.0 <4.0.0"
+  dart: ">=3.5.0 <4.0.0"
   flutter: ">=3.19.0"

@@ -25,7 +25,6 @@ import 'package:super_editor/src/infrastructure/strings.dart';
 import 'package:super_text_layout/super_text_layout.dart';
 
 import 'layout_single_column/layout_single_column.dart';
-import 'list_items.dart';
 import 'multi_node_editing.dart';
 import 'paragraph.dart';
 import 'selection_upstream_downstream.dart';

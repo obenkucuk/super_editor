@@ -1,7 +1,5 @@
 import 'dart:ui';
-
 import 'package:flutter/widgets.dart';
-
 import 'text_layout.dart';
 
 // The default width of a selection highlight box when a given

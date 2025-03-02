@@ -44,7 +44,7 @@ packages:
       path: "../../attributed_text"
       relative: true
     source: path
-    version: "0.4.1"
+    version: "0.4.4"
   boolean_selector:
     dependency: transitive
     description:
@@ -559,7 +559,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.3.0-dev.13"
+    version: "0.3.0-dev.19"
   super_editor_markdown:
     dependency: "direct overridden"
     description:

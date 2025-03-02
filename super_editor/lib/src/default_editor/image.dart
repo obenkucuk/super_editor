@@ -80,7 +80,6 @@ class ImageNode extends BlockNode {
     );
   }
 
-  @override
   ImageNode copy() {
     return ImageNode(
       id: id,

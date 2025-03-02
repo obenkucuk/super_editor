@@ -37,10 +37,10 @@ packages:
     dependency: transitive
     description:
       name: attributed_text
-      sha256: d16c10850371421a778474ac24c24b4ab8708e3e53f3796f8d9ea2a41a25a59a
+      sha256: "9d8bdc6e54387f31e52d2dcc3d93d656072582a44bcaa855c9ea8b3b2fa7abd3"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.2"
+    version: "0.4.4"
   boolean_selector:
     dependency: transitive
     description:
@@ -498,7 +498,7 @@ packages:
       path: "../../super_editor"
       relative: true
     source: path
-    version: "0.3.0-dev.15"
+    version: "0.3.0-dev.19"
   super_editor_spellcheck:
     dependency: "direct main"
     description:
