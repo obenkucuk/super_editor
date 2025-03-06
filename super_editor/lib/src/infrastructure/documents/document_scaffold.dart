@@ -23,10 +23,13 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
     required this.presenter,
     required this.componentBuilders,
     required this.shrinkWrap,
+    this.useSliverListContext,
     this.underlays = const [],
     this.overlays = const [],
     this.debugPaint = const DebugPaintConfig(),
   });
+
+  final void Function(BuildContext context)? useSliverListContext;
 
   /// [LayerLink] that's is attached to the document layout.
   final LayerLink documentLayoutLink;
@@ -40,14 +43,17 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
 
   /// Builder that creates a gesture interaction widget, which is displayed
   /// beneath the document, at the same size as the viewport.
-  final Widget Function(BuildContext context, {required Widget child}) gestureBuilder;
+  final Widget Function(BuildContext context, {required Widget child})
+      gestureBuilder;
 
   /// Builds the text input widget, if applicable. The text input system is placed
   /// above the gesture system and beneath viewport decoration.
-  final Widget Function(BuildContext context, {required Widget child})? textInputBuilder;
+  final Widget Function(BuildContext context, {required Widget child})?
+      textInputBuilder;
 
   /// Builds platform specific viewport decoration (such as toolbar overlay manager or magnifier overlay manager).
-  final Widget Function(BuildContext context, {required Widget child}) viewportDecorationBuilder;
+  final Widget Function(BuildContext context, {required Widget child})
+      viewportDecorationBuilder;
 
   /// Controls scrolling when this [DocumentScaffold] adds its own `Scrollable`, but
   /// doesn't provide scrolling control when this [DocumentScaffold] uses an ancestor
@@ -138,6 +144,7 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
     return ContentLayers(
       content: (onBuildScheduled) => SingleColumnDocumentLayout(
         boxKey: widget.boxKey,
+        useSliverListContext: widget.useSliverListContext,
         document: widget.document,
         scrollController: widget.mainScrollController,
         key: widget.documentLayoutKey,
