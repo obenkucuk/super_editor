@@ -260,6 +260,7 @@ class IosDocumentTouchInteractor extends StatefulWidget {
   const IosDocumentTouchInteractor({
     Key? key,
     this.readOnly = false,
+    required this.superEditorContext,
     required this.focusNode,
     required this.editor,
     required this.document,
@@ -279,6 +280,8 @@ class IosDocumentTouchInteractor extends StatefulWidget {
   }) : super(key: key);
 
   final bool readOnly;
+
+  final SuperEditorContext superEditorContext;
 
   final FocusNode focusNode;
 
@@ -714,7 +717,7 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
         } else {
           // Place the document selection at the location where the
           // user tapped.
-          _selectPosition(adjustedSelectionPosition);
+          _selectPosition(adjustedSelectionPosition, isOnTap: true);
         }
       }
     } else {
@@ -724,7 +727,7 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       _controlsController!.hideToolbar();
     }
 
-    if (!widget.readOnly) widget.focusNode.requestFocus();
+    widget.focusNode.requestFocus();
   }
 
   DocumentPosition _moveTapPositionToWordBoundary(DocumentPosition docPosition) {
@@ -811,7 +814,7 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       _controlsController!.showToolbar();
     }
 
-    if (!widget.readOnly) widget.focusNode.requestFocus();
+    widget.focusNode.requestFocus();
   }
 
   bool _selectBlockAt(DocumentPosition position) {
@@ -893,7 +896,7 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       _controlsController!.showToolbar();
     }
 
-    if (!widget.readOnly) widget.focusNode.requestFocus();
+    widget.focusNode.requestFocus();
   }
 
   void _onPanDown(DragDownDetails details) {
@@ -1324,7 +1327,22 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     widget.dragHandleAutoScroller.value?.stopAutoScrollHandleMonitoring();
   }
 
-  void _selectPosition(DocumentPosition position) {
+  void _selectPosition(DocumentPosition position, {bool isOnTap = false}) {
+    if (isOnTap &&
+        widget.superEditorContext.sectionSelection != null &&
+        widget.superEditorContext.sectionSeparatorBuilder != null &&
+        position.nodePosition is TextPosition) {
+      final textPosition = position.nodePosition as TextPosition;
+
+      final node = widget.document.getNodeById(position.nodeId);
+      if (node is TextNode) {
+        final selection = getSectionFromPosition(textPosition, widget.document.getNodeById(position.nodeId) as TextNode,
+            widget.superEditorContext.sectionSeparatorBuilder);
+
+        widget.superEditorContext.sectionSelection!.value = selection;
+      }
+    }
+
     editorGesturesLog.fine("Setting document selection to $position");
     if (!widget.readOnly) {
       widget.editor.execute([

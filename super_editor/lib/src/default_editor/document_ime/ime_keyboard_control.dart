@@ -18,7 +18,10 @@ class SoftwareKeyboardOpener extends StatefulWidget {
     required this.createImeClient,
     required this.createImeConfiguration,
     required this.child,
+    this.readOnly = false,
   }) : super(key: key);
+
+  final bool readOnly;
 
   final SoftwareKeyboardController? controller;
 
@@ -69,13 +72,18 @@ class _SoftwareKeyboardOpenerState extends State<SoftwareKeyboardOpener> impleme
   @override
   void open() {
     editorImeLog.info("[SoftwareKeyboard] - showing keyboard");
+
     widget.imeConnection.value ??= TextInput.attach(widget.createImeClient(), widget.createImeConfiguration());
-    widget.imeConnection.value!.show();
+    if (!widget.readOnly) {
+      widget.imeConnection.value!.show();
+    }
   }
 
   @override
   void hide() {
-    SystemChannels.textInput.invokeListMethod("TextInput.hide");
+    if (!widget.readOnly) {
+      SystemChannels.textInput.invokeListMethod("TextInput.hide");
+    }
   }
 
   @override

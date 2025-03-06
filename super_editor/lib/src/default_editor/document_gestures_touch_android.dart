@@ -14,6 +14,7 @@ import 'package:super_editor/src/core/document_selection.dart';
 import 'package:super_editor/src/core/edit_context.dart';
 import 'package:super_editor/src/core/editor.dart';
 import 'package:super_editor/src/default_editor/super_editor.dart';
+import 'package:super_editor/src/default_editor/text.dart';
 import 'package:super_editor/src/default_editor/text_tools.dart';
 import 'package:super_editor/src/document_operations/selection_operations.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
@@ -31,7 +32,6 @@ import 'package:super_editor/src/infrastructure/platforms/mobile_documents.dart'
 import 'package:super_editor/src/infrastructure/signal_notifier.dart';
 import 'package:super_editor/src/infrastructure/sliver_hybrid_stack.dart';
 import 'package:super_editor/src/infrastructure/touch_controls.dart';
-import 'package:super_editor/super_editor.dart';
 
 import '../infrastructure/document_gestures.dart';
 import '../infrastructure/document_gestures_interaction_overrides.dart';
@@ -1250,39 +1250,6 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
     }
   }
 
-  DocumentSelection? _getSectionFromPosition(TextPosition position, TextNode textNode) {
-    int sentenceIndex = 0;
-    final sentences = widget.superEditorContext.sectionSeparatorBuilder!(textNode.text.toPlainText());
-    final sentenceLengths = sentences.map((e) => e.text.length).toList();
-    int currentLength = 0;
-
-    for (var i = 0; i < sentenceLengths.length; i++) {
-      currentLength += sentenceLengths[i];
-
-      if (currentLength > position.offset) {
-        sentenceIndex = i;
-
-        break;
-      }
-    }
-
-    final startPosition = sentenceIndex == 0
-        ? 0
-        : (sentenceLengths.take(sentenceIndex).toList().reduce((value, element) => value + element));
-    final endPosition = startPosition + sentences[sentenceIndex].text.trim().length;
-
-    return DocumentSelection(
-      base: DocumentPosition(
-        nodeId: textNode.id,
-        nodePosition: TextNodePosition(offset: startPosition),
-      ),
-      extent: DocumentPosition(
-        nodeId: textNode.id,
-        nodePosition: TextNodePosition(offset: endPosition),
-      ),
-    );
-  }
-
   void _selectPosition(DocumentPosition position, {bool isOnTap = false}) {
     if (isOnTap &&
         widget.superEditorContext.sectionSelection != null &&
@@ -1292,15 +1259,11 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
 
       final node = widget.document.getNodeById(position.nodeId);
       if (node is TextNode) {
-        final selection =
-            _getSectionFromPosition(textPosition, widget.document.getNodeById(position.nodeId) as TextNode);
+        final selection = getSectionFromPosition(textPosition, widget.document.getNodeById(position.nodeId) as TextNode,
+            widget.superEditorContext.sectionSeparatorBuilder);
 
         widget.superEditorContext.sectionSelection!.value = selection;
       }
-
-      // widget.superEditorContext.sectionSelection?.value = DocumentSelection(
-      //     base: DocumentPosition(nodeId: position.nodeId, nodePosition: position.nodePosition),
-      //     extent: DocumentPosition(nodeId: position.nodeId, nodePosition: position.nodePosition));
     }
 
     editorGesturesLog.fine("Setting document selection to $position");

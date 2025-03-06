@@ -50,7 +50,10 @@ class SuperEditorImeInteractor extends StatefulWidget {
     required this.selectorHandlers,
     this.floatingCursorController,
     required this.child,
+    this.readOnly = false,
   }) : super(key: key);
+
+  final bool readOnly;
 
   final FocusNode? focusNode;
 
@@ -526,6 +529,7 @@ class SuperEditorImeInteractorState extends State<SuperEditorImeInteractor> impl
               openImeOnNonPrimaryFocusGain: widget.imePolicies.openImeOnNonPrimaryFocusGain,
               closeImeOnNonPrimaryFocusLost: widget.imePolicies.closeImeOnNonPrimaryFocusLost,
               child: SoftwareKeyboardOpener(
+                readOnly: widget.readOnly,
                 controller: widget.softwareKeyboardController,
                 imeConnection: _imeConnection,
                 createImeClient: () => _documentImeClient,

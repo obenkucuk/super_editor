@@ -4,6 +4,7 @@ import 'package:super_editor/src/core/document_composer.dart';
 import 'package:super_editor/src/core/document_layout.dart';
 import 'package:super_editor/src/core/editor.dart';
 import 'package:super_editor/src/default_editor/selection_upstream_downstream.dart';
+import 'package:super_editor/src/default_editor/text.dart';
 import 'package:super_editor/src/default_editor/text_tools.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
 
@@ -693,4 +694,38 @@ String _textInSelection({
 
 Future<void> _saveToClipboard(String text) {
   return Clipboard.setData(ClipboardData(text: text));
+}
+
+DocumentSelection? getSectionFromPosition(TextPosition position, TextNode textNode,
+    List<({int index, String text})> Function(String text)? sectionSeparatorBuilder) {
+  int sentenceIndex = 0;
+  final sentences = sectionSeparatorBuilder!(textNode.text.toPlainText());
+  final sentenceLengths = sentences.map((e) => e.text.length).toList();
+  int currentLength = 0;
+
+  for (var i = 0; i < sentenceLengths.length; i++) {
+    currentLength += sentenceLengths[i];
+
+    if (currentLength > position.offset) {
+      sentenceIndex = i;
+
+      break;
+    }
+  }
+
+  final startPosition = sentenceIndex == 0
+      ? 0
+      : (sentenceLengths.take(sentenceIndex).toList().reduce((value, element) => value + element));
+  final endPosition = startPosition + sentences[sentenceIndex].text.trim().length;
+
+  return DocumentSelection(
+    base: DocumentPosition(
+      nodeId: textNode.id,
+      nodePosition: TextNodePosition(offset: startPosition),
+    ),
+    extent: DocumentPosition(
+      nodeId: textNode.id,
+      nodePosition: TextNodePosition(offset: endPosition),
+    ),
+  );
 }
