@@ -108,9 +108,6 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
 
   late SliverObserverController observerController;
 
-  final ValueNotifier<List<int>> displayingChildIndexList =
-      ValueNotifier<List<int>>([]);
-
   @override
   void initState() {
     super.initState();
@@ -129,10 +126,6 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
   }
 
   Future<dynamic> _animateToIndex(int index) {
-    if (displayingChildIndexList.value.contains(index)) {
-      return Future<dynamic>.value();
-    }
-
     return observerController.animateTo(
       sliverContext: _sliverListCtx,
       index: index,
@@ -154,7 +147,6 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
   @override
   void dispose() {
     observerController.controller?.dispose();
-    displayingChildIndexList.dispose();
     super.dispose();
   }
 
@@ -181,7 +173,6 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
     required Widget child,
   }) {
     return DocumentScrollable(
-      displayingChildIndexList: displayingChildIndexList,
       boxKey: widget.boxKey,
       observerController: observerController,
       sliverListContext: _sliverListCtx,
