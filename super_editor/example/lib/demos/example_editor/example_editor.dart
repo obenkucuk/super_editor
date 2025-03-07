@@ -359,7 +359,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
     }
   }
 
-  int? _scrollToIndex;
+  int _scrollToIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -516,7 +516,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
           child: Text("Go to"),
           onPressed: () {
             setState(() {
-              _scrollToIndex = Random().nextInt(30);
+              _scrollToIndex = _scrollToIndex + 1;
             });
           },
         ),

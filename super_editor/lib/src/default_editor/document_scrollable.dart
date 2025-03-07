@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
-
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:scrollview_observer/scrollview_observer.dart';
@@ -39,11 +39,14 @@ class DocumentScrollable extends StatefulWidget {
     required this.boxKey,
     required this.observerController,
     this.sliverListContext,
+    required this.displayingChildIndexList,
   }) : super(key: key);
 
   final SliverObserverController observerController;
 
   final BuildContext? sliverListContext;
+
+  final ValueNotifier<List<int>> displayingChildIndexList;
 
   /// Controller that adjusts the scroll offset of this [DocumentScrollable].
   final AutoScrollController autoScroller;
@@ -234,6 +237,15 @@ class _DocumentScrollableState extends State<DocumentScrollable>
           sliverContexts: () => [
             if (widget.sliverListContext != null) widget.sliverListContext!,
           ],
+          onObserveAll: (resultMap) {
+            final model = resultMap[widget.sliverListContext];
+            if (model != null &&
+                model.visible &&
+                model is ListViewObserveModel) {
+              widget.displayingChildIndexList.value =
+                  model.displayingChildIndexList;
+            }
+          },
         ),
       ),
     );
