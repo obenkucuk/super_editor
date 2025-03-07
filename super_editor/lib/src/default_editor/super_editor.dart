@@ -104,6 +104,7 @@ class SuperEditor extends StatefulWidget {
     this.sectionSelection,
     this.sectionSelectionStyles,
     this.sectionSeparatorBuilder,
+    this.scrollToIndex,
     this.readOnly = false,
     this.focusNode,
     this.autofocus = false,
@@ -145,7 +146,6 @@ class SuperEditor extends StatefulWidget {
     this.plugins = const {},
     this.debugPaint = const DebugPaintConfig(),
     this.shrinkWrap = false,
-    this.useSliverListContext,
   })  : stylesheet = stylesheet ?? defaultStylesheet,
         selectionStyles = selectionStyle ?? defaultSelectionStyle,
         componentBuilders = [
@@ -157,13 +157,13 @@ class SuperEditor extends StatefulWidget {
         ],
         super(key: key);
 
-  final void Function(BuildContext context)? useSliverListContext;
-
   final bool readOnly;
 
   final ValueNotifier<DocumentSelection?>? sectionSelection;
 
   final List<({int index, String text})> Function(String text)? sectionSeparatorBuilder;
+
+  final int? scrollToIndex;
 
   /// [FocusNode] for the entire `SuperEditor`.
   final FocusNode? focusNode;
@@ -730,7 +730,7 @@ class SuperEditorState extends State<SuperEditor> {
             clearSelectionWhenEditorLosesFocus: widget.selectionPolicies.clearSelectionWhenEditorLosesFocus,
             child: DocumentScaffold(
               boxKey: _boxKey,
-              useSliverListContext: widget.useSliverListContext,
+              scrollToIndex: widget.scrollToIndex,
               document: widget.editor.document,
               documentLayoutLink: _documentLayoutLink,
               documentLayoutKey: _docLayoutKey,

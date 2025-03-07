@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:example/logging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,10 +10,16 @@ import 'package:collection/collection.dart' show ListExtensions;
 import '_example_document.dart';
 import '_toolbar.dart';
 
-List<({int index, String text})> Function(String) sectionSeparatorBuilder = (text) {
+List<({int index, String text})> Function(String) sectionSeparatorBuilder =
+    (text) {
   List<String> splitSentences(String text) {
-    final regex = RegExp(r'(?<!\b(?:Mr|Ms|Dr|Jr|Sr|St|Prof|Ph\.D|U\.S)\.)(?<!\b[A-Z]\.)(?<=\.|\?|!)\s+');
-    return text.split(regex).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final regex = RegExp(
+        r'(?<!\b(?:Mr|Ms|Dr|Jr|Sr|St|Prof|Ph\.D|U\.S)\.)(?<!\b[A-Z]\.)(?<=\.|\?|!)\s+');
+    return text
+        .split(regex)
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
   }
 
   List<String> mergeShortSentences(List<String> sentences, int minChars) {
@@ -57,7 +65,9 @@ List<({int index, String text})> Function(String) sectionSeparatorBuilder = (tex
     print('Senteces Length: ${sentence.length}');
   }
 
-  return mergedSentences.mapIndexed((index, section) => (index: index, text: section)).toList();
+  return mergedSentences
+      .mapIndexed((index, section) => (index: index, text: section))
+      .toList();
 };
 
 /// Example of a rich text editor.
@@ -117,12 +127,14 @@ class _ExampleEditorState extends State<ExampleEditor> {
       // _doc = createInitialDocument()..addListener(_onDocumentChange);
       _composer = MutableDocumentComposer();
       _composer.selectionNotifier.addListener(_hideOrShowToolbar);
-      _docEditor = createDefaultDocumentEditor(document: _doc, composer: _composer, isHistoryEnabled: true);
+      _docEditor = createDefaultDocumentEditor(
+          document: _doc, composer: _composer, isHistoryEnabled: true);
       _docOps = CommonEditorOperations(
         editor: _docEditor,
         document: _doc,
         composer: _composer,
-        documentLayoutResolver: () => _docLayoutKey.currentState as DocumentLayout,
+        documentLayoutResolver: () =>
+            _docLayoutKey.currentState as DocumentLayout,
       );
       _editorFocusNode = BlockingFocusNode(readOnly: true);
       _scrollController = ScrollController()..addListener(_hideOrShowToolbar);
@@ -312,8 +324,10 @@ class _ExampleEditorState extends State<ExampleEditor> {
     // TODO: switch to a Leader and Follower for this
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       final docBoundingBox = (_docLayoutKey.currentState as DocumentLayout)
-          .getRectForSelection(_composer.selection!.base, _composer.selection!.extent)!;
-      final docBox = _docLayoutKey.currentContext!.findRenderObject() as RenderBox;
+          .getRectForSelection(
+              _composer.selection!.base, _composer.selection!.extent)!;
+      final docBox =
+          _docLayoutKey.currentContext!.findRenderObject() as RenderBox;
       final overlayBoundingBox = Rect.fromPoints(
         docBox.localToGlobal(docBoundingBox.topLeft),
         docBox.localToGlobal(docBoundingBox.bottomRight),
@@ -345,6 +359,8 @@ class _ExampleEditorState extends State<ExampleEditor> {
     }
   }
 
+  int? _scrollToIndex;
+
   @override
   Widget build(BuildContext context) {
     // return Scaffold(
@@ -364,36 +380,41 @@ class _ExampleEditorState extends State<ExampleEditor> {
         child: CircularProgressIndicator(),
       );
     }
-    return Column(
-      children: [
-        Expanded(
-          child: ValueListenableBuilder(
-            valueListenable: _brightness,
-            builder: (context, brightness, child) {
-              return Theme(
-                data: ThemeData(brightness: brightness),
-                child: child!,
-              );
-            },
-            child: Builder(
-              // This builder captures the new theme
-              builder: (themedContext) {
-                return OverlayPortal(
-                  controller: _textFormatBarOverlayController,
-                  overlayChildBuilder: _buildFloatingToolbar,
-                  child: OverlayPortal(
-                    controller: _imageFormatBarOverlayController,
-                    overlayChildBuilder: _buildImageToolbar,
-                    child: Stack(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Super Editor Example'),
+      ),
+      body: ValueListenableBuilder(
+        valueListenable: _brightness,
+        builder: (context, brightness, child) {
+          return Theme(
+            data: ThemeData(brightness: brightness),
+            child: child!,
+          );
+        },
+        child: Builder(
+          // This builder captures the new theme
+          builder: (themedContext) {
+            return OverlayPortal(
+              controller: _textFormatBarOverlayController,
+              overlayChildBuilder: _buildFloatingToolbar,
+              child: OverlayPortal(
+                controller: _imageFormatBarOverlayController,
+                overlayChildBuilder: _buildImageToolbar,
+                child: Stack(
+                  children: [
+                    Column(
                       children: [
-                        Column(
-                          children: [
-                            Expanded(
-                              child: _buildEditor(themedContext),
-                            ),
-                            if (_isMobile) //
-                              _buildMountedToolbar(),
-                          ],
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: _buildEditor(themedContext),
+                              ),
+                              if (_isMobile) //
+                                _buildMountedToolbar(),
+                            ],
+                          ),
                         ),
                         Align(
                           alignment: Alignment.bottomRight,
@@ -401,22 +422,44 @@ class _ExampleEditorState extends State<ExampleEditor> {
                             listenable: _composer.selectionNotifier,
                             builder: (context, child) {
                               return Padding(
-                                padding: EdgeInsets.only(bottom: _isMobile && _composer.selection != null ? 48 : 0),
+                                padding: EdgeInsets.only(
+                                    bottom:
+                                        _isMobile && _composer.selection != null
+                                            ? 48
+                                            : 0),
                                 child: child,
                               );
                             },
                             child: _buildCornerFabs(),
                           ),
                         ),
+                        if (_isMobile) //
+                          _buildMountedToolbar(),
                       ],
                     ),
-                  ),
-                );
-              },
-            ),
-          ),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: ListenableBuilder(
+                        listenable: _composer.selectionNotifier,
+                        builder: (context, child) {
+                          return Padding(
+                            padding: EdgeInsets.only(
+                                bottom: _isMobile && _composer.selection != null
+                                    ? 48
+                                    : 0),
+                            child: child,
+                          );
+                        },
+                        child: _buildCornerFabs(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
-      ],
+      ),
     );
   }
 
@@ -437,13 +480,18 @@ class _ExampleEditorState extends State<ExampleEditor> {
 
   Widget _buildDebugVisualsToggle() {
     return FloatingActionButton(
-      backgroundColor: _brightness.value == Brightness.light ? _darkBackground : _lightBackground,
-      foregroundColor: _brightness.value == Brightness.light ? _lightBackground : _darkBackground,
+      backgroundColor: _brightness.value == Brightness.light
+          ? _darkBackground
+          : _lightBackground,
+      foregroundColor: _brightness.value == Brightness.light
+          ? _lightBackground
+          : _darkBackground,
       elevation: 5,
       onPressed: () {
         final allSentencesMap = _doc.map((node) {
           if (node is TextNode) {
-            final sentences = sectionSeparatorBuilder.call(node.text.toPlainText());
+            final sentences =
+                sectionSeparatorBuilder.call(node.text.toPlainText());
 
             return sentences;
           }
@@ -462,20 +510,38 @@ class _ExampleEditorState extends State<ExampleEditor> {
   }
 
   Widget _buildLightAndDarkModeToggle() {
-    return FloatingActionButton(
-      backgroundColor: _brightness.value == Brightness.light ? _darkBackground : _lightBackground,
-      foregroundColor: _brightness.value == Brightness.light ? _lightBackground : _darkBackground,
-      elevation: 5,
-      onPressed: () {
-        _brightness.value = _brightness.value == Brightness.light ? Brightness.dark : Brightness.light;
-      },
-      child: _brightness.value == Brightness.light
-          ? const Icon(
-              Icons.dark_mode,
-            )
-          : const Icon(
-              Icons.light_mode,
-            ),
+    return Column(
+      children: [
+        FloatingActionButton(
+          child: Text("Go to"),
+          onPressed: () {
+            setState(() {
+              _scrollToIndex = Random().nextInt(30);
+            });
+          },
+        ),
+        FloatingActionButton(
+          backgroundColor: _brightness.value == Brightness.light
+              ? _darkBackground
+              : _lightBackground,
+          foregroundColor: _brightness.value == Brightness.light
+              ? _lightBackground
+              : _darkBackground,
+          elevation: 5,
+          onPressed: () {
+            _brightness.value = _brightness.value == Brightness.light
+                ? Brightness.dark
+                : Brightness.light;
+          },
+          child: _brightness.value == Brightness.light
+              ? const Icon(
+                  Icons.dark_mode,
+                )
+              : const Icon(
+                  Icons.light_mode,
+                ),
+        ),
+      ],
     );
   }
 
@@ -492,6 +558,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
             controller: _iosControlsController,
             child: SuperEditor(
               readOnly: true,
+              scrollToIndex: _scrollToIndex,
               sectionSelection: sectionSelection,
               sectionSeparatorBuilder: sectionSeparatorBuilder,
               editor: _docEditor,
@@ -500,14 +567,16 @@ class _ExampleEditorState extends State<ExampleEditor> {
               documentLayoutKey: _docLayoutKey,
               documentOverlayBuilders: [
                 DefaultCaretOverlayBuilder(
-                  caretStyle: const CaretStyle().copyWith(color: isLight ? Colors.black : Colors.redAccent),
+                  caretStyle: const CaretStyle().copyWith(
+                      color: isLight ? Colors.black : Colors.redAccent),
                 ),
                 if (defaultTargetPlatform == TargetPlatform.iOS) ...[
                   SuperEditorIosHandlesDocumentLayerBuilder(),
                   SuperEditorIosToolbarFocalPointDocumentLayerBuilder(),
                 ],
                 if (defaultTargetPlatform == TargetPlatform.android) ...[
-                  SuperEditorAndroidToolbarFocalPointDocumentLayerBuilder(readOnly: true),
+                  SuperEditorAndroidToolbarFocalPointDocumentLayerBuilder(
+                      readOnly: true),
                   SuperEditorAndroidHandlesDocumentLayerBuilder(),
                 ],
               ],
@@ -536,7 +605,9 @@ class _ExampleEditorState extends State<ExampleEditor> {
               ],
               gestureMode: _gestureMode,
               inputSource: _inputSource,
-              keyboardActions: _inputSource == TextInputSource.ime ? defaultImeKeyboardActions : defaultKeyboardActions,
+              keyboardActions: _inputSource == TextInputSource.ime
+                  ? defaultImeKeyboardActions
+                  : defaultKeyboardActions,
               androidToolbarBuilder: (_) => _buildAndroidFloatingToolbar(),
               overlayController: _overlayController,
               plugins: {
@@ -608,7 +679,8 @@ class _ExampleEditorState extends State<ExampleEditor> {
       setWidth: (nodeId, width) {
         print("Applying width $width to node $nodeId");
         final node = _doc.getNodeById(nodeId)!;
-        final currentStyles = SingleColumnLayoutComponentStyles.fromMetadata(node);
+        final currentStyles =
+            SingleColumnLayoutComponentStyles.fromMetadata(node);
 
         _docEditor.execute([
           ChangeSingleColumnLayoutComponentStylesRequest(
@@ -690,7 +762,8 @@ class BlockingFocusNode extends FocusNode {
   bool get canRequestFocus => readOnly ? false : super.canRequestFocus;
 
   @override
-  bool get descendantsAreFocusable => readOnly ? false : super.descendantsAreFocusable;
+  bool get descendantsAreFocusable =>
+      readOnly ? false : super.descendantsAreFocusable;
 
   @override
   bool focusInDirection(TraversalDirection direction) {

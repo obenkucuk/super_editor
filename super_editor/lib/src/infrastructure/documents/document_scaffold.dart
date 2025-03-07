@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:super_editor/src/default_editor/document_scrollable.dart';
 import 'package:super_editor/super_editor.dart';
 
@@ -18,18 +19,16 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
     required this.mainScrollController,
     required this.autoScrollController,
     required this.boxKey,
+    this.scrollToIndex,
     required this.document,
     required this.scroller,
     required this.presenter,
     required this.componentBuilders,
     required this.shrinkWrap,
-    this.useSliverListContext,
     this.underlays = const [],
     this.overlays = const [],
     this.debugPaint = const DebugPaintConfig(),
   });
-
-  final void Function(BuildContext context)? useSliverListContext;
 
   /// [LayerLink] that's is attached to the document layout.
   final LayerLink documentLayoutLink;
@@ -41,19 +40,27 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
 
   final Document document;
 
+  final int? scrollToIndex;
+
   /// Builder that creates a gesture interaction widget, which is displayed
   /// beneath the document, at the same size as the viewport.
-  final Widget Function(BuildContext context, {required Widget child})
-      gestureBuilder;
+  final Widget Function(
+    BuildContext context, {
+    required Widget child,
+  }) gestureBuilder;
 
   /// Builds the text input widget, if applicable. The text input system is placed
   /// above the gesture system and beneath viewport decoration.
-  final Widget Function(BuildContext context, {required Widget child})?
-      textInputBuilder;
+  final Widget Function(
+    BuildContext context, {
+    required Widget child,
+  })? textInputBuilder;
 
   /// Builds platform specific viewport decoration (such as toolbar overlay manager or magnifier overlay manager).
-  final Widget Function(BuildContext context, {required Widget child})
-      viewportDecorationBuilder;
+  final Widget Function(
+    BuildContext context, {
+    required Widget child,
+  }) viewportDecorationBuilder;
 
   /// Controls scrolling when this [DocumentScaffold] adds its own `Scrollable`, but
   /// doesn't provide scrolling control when this [DocumentScaffold] uses an ancestor
@@ -97,6 +104,52 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
 }
 
 class _DocumentScaffoldState extends State<DocumentScaffold> {
+  BuildContext? _sliverListCtx;
+
+  late SliverObserverController observerController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    observerController =
+        SliverObserverController(controller: widget.mainScrollController);
+
+    // Trigger an observation manually
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_sliverListCtx != null) {
+        observerController.dispatchOnceObserve(
+          sliverContext: _sliverListCtx!,
+        );
+      }
+    });
+  }
+
+  Future<dynamic> _animateToIndex(int index) {
+    return observerController.animateTo(
+      sliverContext: _sliverListCtx,
+      index: index,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.fastLinearToSlowEaseIn,
+    );
+  }
+
+  @override
+  void didUpdateWidget(DocumentScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollToIndex != widget.scrollToIndex) {
+      if (widget.scrollToIndex != null) {
+        _animateToIndex(widget.scrollToIndex!);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    observerController.controller?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     var child = _buildGestureSystem(
@@ -121,6 +174,8 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
   }) {
     return DocumentScrollable(
       boxKey: widget.boxKey,
+      observerController: observerController,
+      sliverListContext: _sliverListCtx,
       autoScroller: widget.autoScrollController,
       scrollController: widget.mainScrollController,
       scrollingMinimapId: widget.debugPaint.scrollingMinimapId,
@@ -143,8 +198,10 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
   Widget _buildDocumentLayout() {
     return ContentLayers(
       content: (onBuildScheduled) => SingleColumnDocumentLayout(
+        useSliverListContext: (context) {
+          _sliverListCtx = context;
+        },
         boxKey: widget.boxKey,
-        useSliverListContext: widget.useSliverListContext,
         document: widget.document,
         scrollController: widget.mainScrollController,
         key: widget.documentLayoutKey,
