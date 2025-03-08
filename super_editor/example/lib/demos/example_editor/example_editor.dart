@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:example/logging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -347,8 +345,6 @@ class _ExampleEditorState extends State<ExampleEditor> {
     }
   }
 
-  int _scrollToIndex = 0;
-
   @override
   Widget build(BuildContext context) {
     // return Scaffold(
@@ -368,73 +364,59 @@ class _ExampleEditorState extends State<ExampleEditor> {
         child: CircularProgressIndicator(),
       );
     }
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Super Editor Example'),
-      ),
-      body: ValueListenableBuilder(
-        valueListenable: _brightness,
-        builder: (context, brightness, child) {
-          return Theme(
-            data: ThemeData(brightness: brightness),
-            child: child!,
-          );
-        },
-        child: Builder(
-          // This builder captures the new theme
-          builder: (themedContext) {
-            return OverlayPortal(
-              controller: _textFormatBarOverlayController,
-              overlayChildBuilder: _buildFloatingToolbar,
-              child: OverlayPortal(
-                controller: _imageFormatBarOverlayController,
-                overlayChildBuilder: _buildImageToolbar,
-                child: Stack(
-                  children: [
-                    Column(
+    return Column(
+      children: [
+        Expanded(
+          child: ValueListenableBuilder(
+            valueListenable: _brightness,
+            builder: (context, brightness, child) {
+              return Theme(
+                data: ThemeData(brightness: brightness),
+                child: child!,
+              );
+            },
+            child: Builder(
+              // This builder captures the new theme
+              builder: (themedContext) {
+                return OverlayPortal(
+                  controller: _textFormatBarOverlayController,
+                  overlayChildBuilder: _buildFloatingToolbar,
+                  child: OverlayPortal(
+                    controller: _imageFormatBarOverlayController,
+                    overlayChildBuilder: _buildImageToolbar,
+                    child: Stack(
                       children: [
-                        Expanded(
-                          child: _buildEditor(themedContext),
+                        Column(
+                          children: [
+                            Expanded(
+                              child: _buildEditor(themedContext),
+                            ),
+                            if (_isMobile) //
+                              _buildMountedToolbar(),
+                          ],
                         ),
-                        if (_isMobile) //
-                          _buildMountedToolbar(),
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: ListenableBuilder(
+                            listenable: _composer.selectionNotifier,
+                            builder: (context, child) {
+                              return Padding(
+                                padding: EdgeInsets.only(bottom: _isMobile && _composer.selection != null ? 48 : 0),
+                                child: child,
+                              );
+                            },
+                            child: _buildCornerFabs(),
+                          ),
+                        ),
                       ],
                     ),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: ListenableBuilder(
-                        listenable: _composer.selectionNotifier,
-                        builder: (context, child) {
-                          return Padding(
-                            padding: EdgeInsets.only(bottom: _isMobile && _composer.selection != null ? 48 : 0),
-                            child: child,
-                          );
-                        },
-                        child: _buildCornerFabs(),
-                      ),
-                    ),
-                    if (_isMobile) //
-                      _buildMountedToolbar(),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: ListenableBuilder(
-                        listenable: _composer.selectionNotifier,
-                        builder: (context, child) {
-                          return Padding(
-                            padding: EdgeInsets.only(bottom: _isMobile && _composer.selection != null ? 48 : 0),
-                            child: child,
-                          );
-                        },
-                        child: _buildCornerFabs(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+                  ),
+                );
+              },
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -480,32 +462,20 @@ class _ExampleEditorState extends State<ExampleEditor> {
   }
 
   Widget _buildLightAndDarkModeToggle() {
-    return Column(
-      children: [
-        FloatingActionButton(
-          child: Text("Go to"),
-          onPressed: () {
-            setState(() {
-              _scrollToIndex = _scrollToIndex + 1;
-            });
-          },
-        ),
-        FloatingActionButton(
-          backgroundColor: _brightness.value == Brightness.light ? _darkBackground : _lightBackground,
-          foregroundColor: _brightness.value == Brightness.light ? _lightBackground : _darkBackground,
-          elevation: 5,
-          onPressed: () {
-            _brightness.value = _brightness.value == Brightness.light ? Brightness.dark : Brightness.light;
-          },
-          child: _brightness.value == Brightness.light
-              ? const Icon(
-                  Icons.dark_mode,
-                )
-              : const Icon(
-                  Icons.light_mode,
-                ),
-        ),
-      ],
+    return FloatingActionButton(
+      backgroundColor: _brightness.value == Brightness.light ? _darkBackground : _lightBackground,
+      foregroundColor: _brightness.value == Brightness.light ? _lightBackground : _darkBackground,
+      elevation: 5,
+      onPressed: () {
+        _brightness.value = _brightness.value == Brightness.light ? Brightness.dark : Brightness.light;
+      },
+      child: _brightness.value == Brightness.light
+          ? const Icon(
+              Icons.dark_mode,
+            )
+          : const Icon(
+              Icons.light_mode,
+            ),
     );
   }
 
@@ -522,7 +492,6 @@ class _ExampleEditorState extends State<ExampleEditor> {
             controller: _iosControlsController,
             child: SuperEditor(
               readOnly: true,
-              scrollToIndex: _scrollToIndex,
               sectionSelection: sectionSelection,
               sectionSeparatorBuilder: sectionSeparatorBuilder,
               editor: _docEditor,
