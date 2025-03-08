@@ -210,6 +210,7 @@ class ListItemComponentBuilder implements ComponentBuilder {
         textDirection: componentViewModel.textDirection,
         textAlignment: componentViewModel.textAlignment,
         selectionColor: componentViewModel.selectionColor,
+        sectionSelectionColor: componentViewModel.sectionSelectionColor,
         highlightWhenEmpty: componentViewModel.highlightWhenEmpty,
         underlines: componentViewModel.createUnderlines(),
       );
@@ -226,6 +227,7 @@ class ListItemComponentBuilder implements ComponentBuilder {
         textSelection: componentViewModel.selection,
         sectionSelection: componentViewModel.sectionSelection,
         selectionColor: componentViewModel.selectionColor,
+        sectionSelectionColor: componentViewModel.sectionSelectionColor,
         highlightWhenEmpty: componentViewModel.highlightWhenEmpty,
         underlines: componentViewModel.createUnderlines(),
       );
@@ -306,6 +308,8 @@ abstract class ListItemComponentViewModel extends SingleColumnLayoutComponentVie
           textAlignment == other.textAlignment &&
           selection == other.selection &&
           selectionColor == other.selectionColor &&
+          sectionSelectionColor == other.sectionSelectionColor &&
+          sectionSelection == other.sectionSelection &&
           highlightWhenEmpty == other.highlightWhenEmpty &&
           spellingErrorUnderlineStyle == other.spellingErrorUnderlineStyle &&
           const DeepCollectionEquality().equals(spellingErrors, spellingErrors) &&
@@ -324,6 +328,8 @@ abstract class ListItemComponentViewModel extends SingleColumnLayoutComponentVie
       textAlignment.hashCode ^
       selection.hashCode ^
       selectionColor.hashCode ^
+      sectionSelectionColor.hashCode ^
+      sectionSelection.hashCode ^
       highlightWhenEmpty.hashCode ^
       spellingErrorUnderlineStyle.hashCode ^
       spellingErrors.hashCode ^

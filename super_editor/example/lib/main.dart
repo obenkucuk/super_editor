@@ -613,11 +613,10 @@ class _DrawerButton extends StatelessWidget {
               return Colors.transparent;
             }),
             // splashFactory: NoSplash.splashFactory,
-            foregroundColor: WidgetStateColor.resolveWith((states) =>
-                isSelected ? Colors.white : const Color(0xFFBBBBBB)),
+            foregroundColor:
+                WidgetStateColor.resolveWith((states) => isSelected ? Colors.white : const Color(0xFFBBBBBB)),
             elevation: WidgetStateProperty.resolveWith((states) => 0),
-            padding: WidgetStateProperty.resolveWith(
-                (states) => const EdgeInsets.all(16))),
+            padding: WidgetStateProperty.resolveWith((states) => const EdgeInsets.all(16))),
         onPressed: isSelected ? null : onPressed,
         child: Row(
           children: [

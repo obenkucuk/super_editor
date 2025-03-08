@@ -394,33 +394,27 @@ class _ExampleEditorState extends State<ExampleEditor> {
                     Column(
                       children: [
                         Expanded(
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: _buildEditor(themedContext),
-                              ),
-                              if (_isMobile) //
-                                _buildMountedToolbar(),
-                            ],
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.bottomRight,
-                          child: ListenableBuilder(
-                            listenable: _composer.selectionNotifier,
-                            builder: (context, child) {
-                              return Padding(
-                                padding: EdgeInsets.only(bottom: _isMobile && _composer.selection != null ? 48 : 0),
-                                child: child,
-                              );
-                            },
-                            child: _buildCornerFabs(),
-                          ),
+                          child: _buildEditor(themedContext),
                         ),
                         if (_isMobile) //
                           _buildMountedToolbar(),
                       ],
                     ),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: ListenableBuilder(
+                        listenable: _composer.selectionNotifier,
+                        builder: (context, child) {
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: _isMobile && _composer.selection != null ? 48 : 0),
+                            child: child,
+                          );
+                        },
+                        child: _buildCornerFabs(),
+                      ),
+                    ),
+                    if (_isMobile) //
+                      _buildMountedToolbar(),
                     Align(
                       alignment: Alignment.bottomRight,
                       child: ListenableBuilder(
