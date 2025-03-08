@@ -115,3 +115,5 @@ export 'package:super_text_layout/super_text_layout.dart'
         DottedUnderlinePainter,
         StraightUnderlineStyle,
         StraightUnderlinePainter;
+
+export 'src/default_editor/blocking_focus_node.dart';

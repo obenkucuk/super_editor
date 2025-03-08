@@ -747,7 +747,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
       ..hideMagnifier()
       ..showToolbar();
 
-    if (!widget.readOnly) widget.focusNode.requestFocus();
+    widget.focusNode.requestFocus();
   }
 
   void _onTapUp(TapUpDetails details) {
@@ -825,7 +825,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
       widget.openSoftwareKeyboard();
     }
 
-    if (!widget.readOnly) widget.focusNode.requestFocus();
+    widget.focusNode.requestFocus();
   }
 
   void _onDoubleTapDown(TapDownDetails details) {
@@ -882,7 +882,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
 
     _showAndHideEditingControlsAfterTapSelection(didTapOnExistingSelection: false);
 
-    if (!widget.readOnly) widget.focusNode.requestFocus();
+    widget.focusNode.requestFocus();
   }
 
   bool _selectBlockAt(DocumentPosition position) {
@@ -961,7 +961,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
 
     _showAndHideEditingControlsAfterTapSelection(didTapOnExistingSelection: false);
 
-    if (!widget.readOnly) widget.focusNode.requestFocus();
+    widget.focusNode.requestFocus();
   }
 
   void _showAndHideEditingControlsAfterTapSelection({
