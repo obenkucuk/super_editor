@@ -11,7 +11,20 @@ import '_toolbar.dart';
 List<({int index, String text})> Function(String) sectionSeparatorBuilder = (text) {
   List<String> splitSentences(String text) {
     final regex = RegExp(r'(?<!\b(?:Mr|Ms|Dr|Jr|Sr|St|Prof|Ph\.D|U\.S)\.)(?<!\b[A-Z]\.)(?<=\.|\?|!)\s+');
-    return text.split(regex).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final matches = regex.allMatches(text);
+    List<String> sentences = [];
+    int lastEnd = 0;
+
+    for (final match in matches) {
+      sentences.add(text.substring(lastEnd, match.end));
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < text.length) {
+      sentences.add(text.substring(lastEnd));
+    }
+
+    return sentences.where((s) => s.trim().isNotEmpty).toList();
   }
 
   List<String> mergeShortSentences(List<String> sentences, int minChars) {
@@ -20,30 +33,24 @@ List<({int index, String text})> Function(String) sectionSeparatorBuilder = (tex
     int charCount = 0;
 
     for (var sentence in sentences) {
-      int currentCharCount = sentence.length; // Harf sayısını hesapla
+      int currentCharCount = sentence.trim().length;
 
       if (charCount + currentCharCount < minChars) {
-        // 100 harften kısa ise eklemeye devam et
-        if (buffer.isNotEmpty) {
-          buffer.write(" ");
-        }
         buffer.write(sentence);
-        charCount += currentCharCount + 1; // 1 ekstra boşluk ekleniyor
+        charCount += currentCharCount;
       } else {
-        // 100+ harfe ulaştıysa burada kes
-        buffer.write(" $sentence");
-        result.add(buffer.toString().trim());
+        buffer.write(sentence);
+        result.add(buffer.toString());
         buffer.clear();
         charCount = 0;
       }
     }
 
     if (buffer.isNotEmpty) {
-      // Eğer en sona kalan cümle 100 harften kısa ise, öncekiyle birleştir
-      if (result.isNotEmpty && buffer.length < minChars) {
-        result[result.length - 1] += " ${buffer.toString().trim()}";
+      if (result.isNotEmpty && buffer.toString().trim().length < minChars) {
+        result[result.length - 1] += buffer.toString();
       } else {
-        result.add(buffer.toString().trim());
+        result.add(buffer.toString());
       }
     }
 
@@ -52,10 +59,6 @@ List<({int index, String text})> Function(String) sectionSeparatorBuilder = (tex
 
   List<String> sentences = splitSentences(text);
   List<String> mergedSentences = mergeShortSentences(sentences, 100);
-
-  for (final sentence in mergedSentences) {
-    print('Senteces Length: ${sentence.length}');
-  }
 
   return mergedSentences.mapIndexed((index, section) => (index: index, text: section)).toList();
 };
@@ -106,6 +109,8 @@ class _ExampleEditorState extends State<ExampleEditor> {
   late final ValueNotifier<DocumentSelection?> sectionSelection;
 
   bool initialized = false;
+
+  int _scrollToIndex = 0;
   @override
   void initState() {
     super.initState();
@@ -441,6 +446,9 @@ class _ExampleEditorState extends State<ExampleEditor> {
       foregroundColor: _brightness.value == Brightness.light ? _lightBackground : _darkBackground,
       elevation: 5,
       onPressed: () {
+        setState(() {
+          _scrollToIndex = 10;
+        });
         final allSentencesMap = _doc.map((node) {
           if (node is TextNode) {
             final sentences = sectionSeparatorBuilder.call(node.text.toPlainText());
@@ -491,6 +499,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
           child: SuperEditorIosControlsScope(
             controller: _iosControlsController,
             child: SuperEditor(
+              scrollToIndex: _scrollToIndex,
               readOnly: true,
               sectionSelection: sectionSelection,
               sectionSeparatorBuilder: sectionSeparatorBuilder,
