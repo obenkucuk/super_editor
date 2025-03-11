@@ -38,9 +38,11 @@ class DocumentScrollable extends StatefulWidget {
     required this.boxKey,
     required this.observerController,
     this.sliverListContext,
+    this.onObserveAll,
   }) : super(key: key);
 
   final SliverObserverController observerController;
+  final void Function(Map<BuildContext, ObserveModel>)? onObserveAll;
 
   final BuildContext? sliverListContext;
 
@@ -220,21 +222,16 @@ class _DocumentScrollableState extends State<DocumentScrollable> with SingleTick
         behavior: scrollBehavior.copyWith(scrollbars: false),
         child: SliverViewObserver(
           controller: widget.observerController,
+          sliverContexts: () => [
+            if (widget.sliverListContext != null) widget.sliverListContext!,
+          ],
+          onObserveAll: widget.onObserveAll,
           child: CustomScrollView(
             controller: _scrollController,
             // shrinkWrap: widget.shrinkWrap,
             key: widget.boxKey,
             slivers: [child],
           ),
-          sliverContexts: () => [
-            if (widget.sliverListContext != null) widget.sliverListContext!,
-          ],
-          onObserveAll: (resultMap) {
-            final model = resultMap[widget.sliverListContext];
-            if (model != null && model.visible && model is ListViewObserveModel) {
-              // model.displayingChildIndexList;
-            }
-          },
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' hide SelectableText;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:follow_the_leader/follow_the_leader.dart';
+import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:super_editor/src/core/document.dart';
 import 'package:super_editor/src/core/document_composer.dart';
 import 'package:super_editor/src/core/document_debug_paint.dart';
@@ -105,6 +106,7 @@ class SuperEditor extends StatefulWidget {
     this.sectionSelectionStyles,
     this.sectionSeparatorBuilder,
     this.scrollToIndex,
+    this.onObserveAll,
     this.readOnly = false,
     this.focusNode,
     this.autofocus = false,
@@ -164,6 +166,8 @@ class SuperEditor extends StatefulWidget {
   final List<({int index, String text})> Function(String text)? sectionSeparatorBuilder;
 
   final int? scrollToIndex;
+
+  final void Function(Map<BuildContext, ObserveModel>)? onObserveAll;
 
   /// [FocusNode] for the entire `SuperEditor`.
   final FocusNode? focusNode;
@@ -731,6 +735,7 @@ class SuperEditorState extends State<SuperEditor> {
             child: DocumentScaffold(
               boxKey: _boxKey,
               scrollToIndex: widget.scrollToIndex,
+              onObserveAll: widget.onObserveAll,
               document: widget.editor.document,
               documentLayoutLink: _documentLayoutLink,
               documentLayoutKey: _docLayoutKey,

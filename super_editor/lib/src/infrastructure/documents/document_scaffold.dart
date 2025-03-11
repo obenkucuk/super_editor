@@ -28,7 +28,10 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
     this.underlays = const [],
     this.overlays = const [],
     this.debugPaint = const DebugPaintConfig(),
+    required this.onObserveAll,
   });
+
+  final void Function(Map<BuildContext, ObserveModel>)? onObserveAll;
 
   /// [LayerLink] that's is attached to the document layout.
   final LayerLink documentLayoutLink;
@@ -112,8 +115,7 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
   void initState() {
     super.initState();
 
-    observerController =
-        SliverObserverController(controller: widget.mainScrollController);
+    observerController = SliverObserverController(controller: widget.mainScrollController);
 
     // Trigger an observation manually
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -175,6 +177,7 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
     return DocumentScrollable(
       boxKey: widget.boxKey,
       observerController: observerController,
+      onObserveAll: widget.onObserveAll,
       sliverListContext: _sliverListCtx,
       autoScroller: widget.autoScrollController,
       scrollController: widget.mainScrollController,
@@ -198,9 +201,7 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
   Widget _buildDocumentLayout() {
     return ContentLayers(
       content: (onBuildScheduled) => SingleColumnDocumentLayout(
-        useSliverListContext: (context) {
-          _sliverListCtx = context;
-        },
+        useSliverListContext: (context) => _sliverListCtx = context,
         boxKey: widget.boxKey,
         document: widget.document,
         scrollController: widget.mainScrollController,

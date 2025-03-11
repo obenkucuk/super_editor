@@ -8,61 +8,6 @@ import 'package:collection/collection.dart' show ListExtensions;
 import '_example_document.dart';
 import '_toolbar.dart';
 
-List<({int index, String text})> Function(String) sectionSeparatorBuilder = (text) {
-  List<String> splitSentences(String text) {
-    final regex = RegExp(r'(?<!\b(?:Mr|Ms|Dr|Jr|Sr|St|Prof|Ph\.D|U\.S)\.)(?<!\b[A-Z]\.)(?<=\.|\?|!)\s+');
-    final matches = regex.allMatches(text);
-    List<String> sentences = [];
-    int lastEnd = 0;
-
-    for (final match in matches) {
-      sentences.add(text.substring(lastEnd, match.end));
-      lastEnd = match.end;
-    }
-
-    if (lastEnd < text.length) {
-      sentences.add(text.substring(lastEnd));
-    }
-
-    return sentences.where((s) => s.trim().isNotEmpty).toList();
-  }
-
-  List<String> mergeShortSentences(List<String> sentences, int minChars) {
-    List<String> result = [];
-    StringBuffer buffer = StringBuffer();
-    int charCount = 0;
-
-    for (var sentence in sentences) {
-      int currentCharCount = sentence.trim().length;
-
-      if (charCount + currentCharCount < minChars) {
-        buffer.write(sentence);
-        charCount += currentCharCount;
-      } else {
-        buffer.write(sentence);
-        result.add(buffer.toString());
-        buffer.clear();
-        charCount = 0;
-      }
-    }
-
-    if (buffer.isNotEmpty) {
-      if (result.isNotEmpty && buffer.toString().trim().length < minChars) {
-        result[result.length - 1] += buffer.toString();
-      } else {
-        result.add(buffer.toString());
-      }
-    }
-
-    return result;
-  }
-
-  List<String> sentences = splitSentences(text);
-  List<String> mergedSentences = mergeShortSentences(sentences, 100);
-
-  return mergedSentences.mapIndexed((index, section) => (index: index, text: section)).toList();
-};
-
 /// Example of a rich text editor.
 ///
 /// This editor will expand in functionality as package
@@ -129,7 +74,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
         composer: _composer,
         documentLayoutResolver: () => _docLayoutKey.currentState as DocumentLayout,
       );
-      _editorFocusNode = BlockingFocusNode(readOnly: true);
+      _editorFocusNode = BlockingFocusNode(readOnly: false);
       _scrollController = ScrollController()..addListener(_hideOrShowToolbar);
 
       _iosControlsController = SuperEditorIosControlsController();
@@ -446,6 +391,16 @@ class _ExampleEditorState extends State<ExampleEditor> {
       foregroundColor: _brightness.value == Brightness.light ? _lightBackground : _darkBackground,
       elevation: 5,
       onPressed: () {
+        final _toolbarOps = KeyboardEditingToolbarOperations(
+          editor: _docEditor,
+          document: _doc,
+          composer: _composer,
+          commonOps: _docOps..selectAll(),
+        );
+
+        _toolbarOps.toggleBold();
+        // _docOps
+
         setState(() {
           _scrollToIndex = 10;
         });
@@ -500,7 +455,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
             controller: _iosControlsController,
             child: SuperEditor(
               scrollToIndex: _scrollToIndex,
-              readOnly: true,
+              readOnly: false,
               sectionSelection: sectionSelection,
               sectionSeparatorBuilder: sectionSeparatorBuilder,
               editor: _docEditor,
@@ -516,7 +471,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
                   SuperEditorIosToolbarFocalPointDocumentLayerBuilder(),
                 ],
                 if (defaultTargetPlatform == TargetPlatform.android) ...[
-                  SuperEditorAndroidToolbarFocalPointDocumentLayerBuilder(readOnly: true),
+                  SuperEditorAndroidToolbarFocalPointDocumentLayerBuilder(readOnly: false),
                   SuperEditorAndroidHandlesDocumentLayerBuilder(),
                 ],
               ],
@@ -542,6 +497,7 @@ class _ExampleEditorState extends State<ExampleEditor> {
               componentBuilders: [
                 TaskComponentBuilder(_docEditor),
                 ...defaultComponentBuilders,
+                const UnknownComponentBuilder(),
               ],
               gestureMode: _gestureMode,
               inputSource: _inputSource,
@@ -606,7 +562,10 @@ class _ExampleEditorState extends State<ExampleEditor> {
       editor: _docEditor,
       document: _doc,
       composer: _composer,
-      closeToolbar: _hideEditorToolbar,
+      closeToolbar: () {
+        print("closing toolbar");
+        _hideEditorToolbar();
+      },
     );
   }
 
@@ -667,3 +626,58 @@ final _darkModeStyles = [
     },
   ),
 ];
+
+List<({int index, String text})> Function(String) sectionSeparatorBuilder = (text) {
+  List<String> splitSentences(String text) {
+    final regex = RegExp(r'(?<!\b(?:Mr|Ms|Dr|Jr|Sr|St|Prof|Ph\.D|U\.S)\.)(?<!\b[A-Z]\.)(?<=\.|\?|!)\s+');
+    final matches = regex.allMatches(text);
+    List<String> sentences = [];
+    int lastEnd = 0;
+
+    for (final match in matches) {
+      sentences.add(text.substring(lastEnd, match.end));
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < text.length) {
+      sentences.add(text.substring(lastEnd));
+    }
+
+    return sentences.where((s) => s.trim().isNotEmpty).toList();
+  }
+
+  List<String> mergeShortSentences(List<String> sentences, int minChars) {
+    List<String> result = [];
+    StringBuffer buffer = StringBuffer();
+    int charCount = 0;
+
+    for (var sentence in sentences) {
+      int currentCharCount = sentence.trim().length;
+
+      if (charCount + currentCharCount < minChars) {
+        buffer.write(sentence);
+        charCount += currentCharCount;
+      } else {
+        buffer.write(sentence);
+        result.add(buffer.toString());
+        buffer.clear();
+        charCount = 0;
+      }
+    }
+
+    if (buffer.isNotEmpty) {
+      if (result.isNotEmpty && buffer.toString().trim().length < minChars) {
+        result[result.length - 1] += buffer.toString();
+      } else {
+        result.add(buffer.toString());
+      }
+    }
+
+    return result;
+  }
+
+  List<String> sentences = splitSentences(text);
+  List<String> mergedSentences = mergeShortSentences(sentences, 100);
+
+  return mergedSentences.mapIndexed((index, section) => (index: index, text: section)).toList();
+};
