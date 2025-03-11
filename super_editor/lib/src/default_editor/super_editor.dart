@@ -148,7 +148,6 @@ class SuperEditor extends StatefulWidget {
     this.plugins = const {},
     this.debugPaint = const DebugPaintConfig(),
     this.shrinkWrap = false,
-    this.observerController,
   })  : stylesheet = stylesheet ?? defaultStylesheet,
         selectionStyles = selectionStyle ?? defaultSelectionStyle,
         componentBuilders = [
@@ -169,8 +168,6 @@ class SuperEditor extends StatefulWidget {
   final int? scrollToIndex;
 
   final void Function(Map<BuildContext, ObserveModel>)? onObserveAll;
-
-  final void Function(SliverObserverController observerController)? observerController;
 
   /// [FocusNode] for the entire `SuperEditor`.
   final FocusNode? focusNode;
@@ -736,7 +733,6 @@ class SuperEditorState extends State<SuperEditor> {
             restorePreviousSelectionOnGainFocus: widget.selectionPolicies.restorePreviousSelectionOnGainFocus,
             clearSelectionWhenEditorLosesFocus: widget.selectionPolicies.clearSelectionWhenEditorLosesFocus,
             child: DocumentScaffold(
-              observerController: (controller) => widget.observerController?.call(controller),
               boxKey: _boxKey,
               scrollToIndex: widget.scrollToIndex,
               onObserveAll: widget.onObserveAll,
