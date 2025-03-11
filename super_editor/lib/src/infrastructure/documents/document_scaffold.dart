@@ -28,7 +28,7 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
     this.underlays = const [],
     this.overlays = const [],
     this.debugPaint = const DebugPaintConfig(),
-    required this.onObserveAll,
+    this.onObserveAll,
   });
 
   final void Function(Map<BuildContext, ObserveModel>)? onObserveAll;
