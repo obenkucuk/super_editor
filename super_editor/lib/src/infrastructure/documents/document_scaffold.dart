@@ -29,9 +29,11 @@ class DocumentScaffold<ContextType> extends StatefulWidget {
     this.overlays = const [],
     this.debugPaint = const DebugPaintConfig(),
     this.onObserveAll,
+    this.observerController,
   });
 
   final void Function(Map<BuildContext, ObserveModel>)? onObserveAll;
+  final void Function(SliverObserverController observerController)? observerController;
 
   /// [LayerLink] that's is attached to the document layout.
   final LayerLink documentLayoutLink;
@@ -116,6 +118,7 @@ class _DocumentScaffoldState extends State<DocumentScaffold> {
     super.initState();
 
     observerController = SliverObserverController(controller: widget.mainScrollController);
+    widget.observerController?.call(observerController);
 
     // Trigger an observation manually
     WidgetsBinding.instance.addPostFrameCallback((_) {
